@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Messenger L</title>
+<style>
+  :root { --bg:#0f1115; --panel:#181b22; --me:#2b6df6; --other:#242833; --text:#e8eaf0; --muted:#8a90a0; }
+  * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html, body { height:100%; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  .screen { display:none; height:100dvh; flex-direction:column; }
+  .screen.active { display:flex; }
+
+  /* Login */
+  #login { align-items:center; justify-content:center; padding:24px; gap:14px; }
+  #login h1 { font-size:28px; margin-bottom:8px; }
+  #login p { color:var(--muted); font-size:14px; margin-bottom:10px; }
+  #login form { width:100%; max-width:340px; display:flex; flex-direction:column; gap:12px; }
+  input { width:100%; padding:14px 16px; border-radius:12px; border:1px solid #2c303c; background:var(--panel); color:var(--text); font-size:16px; outline:none; }
+  input:focus { border-color:var(--me); }
+  button { padding:14px; border:0; border-radius:12px; background:var(--me); color:#fff; font-size:16px; font-weight:600; cursor:pointer; }
+  button:disabled { opacity:.5; }
+  #err { color:#ff6b6b; font-size:14px; min-height:18px; text-align:center; }
+
+  /* Chat */
+  header { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; padding-top:max(12px, env(safe-area-inset-top)); background:var(--panel); border-bottom:1px solid #22252f; }
+  header .title { font-weight:700; }
+  header .who { font-size:12px; color:var(--muted); }
+  header button { padding:8px 12px; font-size:13px; background:#2a2e3a; }
+  #msgs { flex:1; overflow-y:auto; padding:14px 12px; display:flex; flex-direction:column; gap:6px; }
+  .msg { max-width:80%; padding:8px 12px; border-radius:16px; background:var(--other); align-self:flex-start; word-wrap:break-word; overflow-wrap:anywhere; white-space:pre-wrap; line-height:1.35; }
+  .msg.me { align-self:flex-end; background:var(--me); }
+  .msg .name { font-size:12px; font-weight:700; color:#7fb0ff; margin-bottom:2px; }
+  .msg .time { font-size:10px; opacity:.6; text-align:right; margin-top:2px; }
+  .day { align-self:center; font-size:12px; color:var(--muted); margin:8px 0; }
+  form#send { display:flex; gap:8px; padding:10px 12px; padding-bottom:max(10px, env(safe-area-inset-bottom)); background:var(--panel); border-top:1px solid #22252f; }
+  form#send input { flex:1; border-radius:22px; }
+  form#send button { border-radius:22px; padding:0 20px; }
+</style>
+</head>
+<body>
+
+<section id="login" class="screen active">
+  <h1>🔒 Messenger L</h1>
+  <p>Приватный чат для своих</p>
+  <form id="loginForm" autocomplete="on">
+    <input id="name" placeholder="Имя" autocapitalize="none" autocomplete="username" required>
+    <input id="pass" type="password" placeholder="Пароль" autocomplete="current-password" required>
+    <button id="loginBtn" type="submit">Войти</button>
+    <div id="err"></div>
+  </form>
+</section>
+
+<section id="chat" class="screen">
+  <header>
+    <div><div class="title">Messenger L</div><div class="who" id="who"></div></div>
+    <button id="logout">Выйти</button>
+  </header>
+  <div id="msgs"></div>
+  <form id="send" autocomplete="off">
+    <input id="text" placeholder="Сообщение" maxlength="2000">
+    <button type="submit">➤</button>
+  </form>
+</section>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCoU2dICPk5nVcP0jA1Z-Y4evWQJvdIw3g",
+  authDomain: "messenger-l.firebaseapp.com",
+  projectId: "messenger-l",
+  storageBucket: "messenger-l.firebasestorage.app",
+  messagingSenderId: "199511334954",
+  appId: "1:199511334954:web:bc2960377f19e8da9fe353"
+};
+
+// Имя пользователя -> почта вида имя@chat.app (пользователей создаёшь в консоли Firebase)
+const DOMAIN = "@chat.app";
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const $ = id => document.getElementById(id);
+const show = id => { document.querySelectorAll(".screen").forEach(s => s.classList.remove("active")); $(id).classList.add("active"); };
+
+let unsub = null;
+
+$("loginForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  $("err").textContent = "";
+  $("loginBtn").disabled = true;
+  try {
+    const name = $("name").value.trim().toLowerCase();
+    await signInWithEmailAndPassword(auth, name + DOMAIN, $("pass").value);
+  } catch (err) {
+    $("err").textContent = "Неверное имя или пароль";
+  } finally {
+    $("loginBtn").disabled = false;
+  }
+});
+
+$("logout").addEventListener("click", () => signOut(auth));
+
+onAuthStateChanged(auth, user => {
+  if (unsub) { unsub(); unsub = null; }
+  if (!user) { show("login"); return; }
+  const myName = user.email.split("@")[0];
+  $("who").textContent = "Вы: " + myName;
+  show("chat");
+  startChat(user, myName);
+});
+
+function startChat(user, myName) {
+  const q = query(collection(db, "messages"), orderBy("createdAt", "desc"), limit(200));
+  unsub = onSnapshot(q, snap => {
+    const box = $("msgs");
+    const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 120;
+    box.innerHTML = "";
+    let lastDay = "";
+    snap.docs.slice().reverse().forEach(d => {
+      const m = d.data();
+      const date = m.createdAt ? m.createdAt.toDate() : new Date();
+      const day = date.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
+      if (day !== lastDay) {
+        const dv = document.createElement("div");
+        dv.className = "day"; dv.textContent = day; box.appendChild(dv);
+        lastDay = day;
+      }
+      const mine = m.uid === user.uid;
+      const el = document.createElement("div");
+      el.className = "msg" + (mine ? " me" : "");
+      if (!mine) {
+        const n = document.createElement("div");
+        n.className = "name"; n.textContent = m.name || "?"; el.appendChild(n);
+      }
+      const t = document.createElement("div");
+      t.textContent = m.text; el.appendChild(t);
+      const tm = document.createElement("div");
+      tm.className = "time";
+      tm.textContent = date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+      el.appendChild(tm);
+      box.appendChild(el);
+    });
+    if (nearBottom || snap.metadata.hasPendingWrites) box.scrollTop = box.scrollHeight;
+  }, err => console.error(err));
+  setTimeout(() => { const b = $("msgs"); b.scrollTop = b.scrollHeight; }, 400);
+
+  $("send").onsubmit = async e => {
+    e.preventDefault();
+    const text = $("text").value.trim();
+    if (!text) return;
+    $("text").value = "";
+    try {
+      await addDoc(collection(db, "messages"), {
+        text, name: myName, uid: user.uid, createdAt: serverTimestamp()
+      });
+    } catch (err) {
+      alert("Не отправилось: " + err.message);
+      $("text").value = text;
+    }
+  };
+}
+</script>
+</body>
+</html>
