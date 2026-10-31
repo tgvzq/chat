@@ -1,0 +1,1841 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#17212b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-512-1.png">
+<link rel="icon" href="icon-512-1.png">
+<title>Messenger L</title>
+<style>
+  :root { --bg:#0e1621; --panel:#17212b; --in:#182533; --out:#2b5278; --accent:#6ab3f3; --text:#f5f5f5; --muted:#7f91a4; --green:#4fae4e; --red:#e5484d; }
+  * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html, body { height:100%; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; overscroll-behavior:none; }
+  .screen { display:none; height:100dvh; flex-direction:column; }
+  .screen.active { display:flex; }
+  button { font:inherit; color:inherit; border:0; background:none; cursor:pointer; }
+  button:disabled { opacity:.5; }
+  svg { width:24px; height:24px; display:block; }
+  .ib { width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#aab8c6; flex:none; }
+  .ib:active { background:rgba(255,255,255,.08); }
+  .round { width:46px; height:46px; border-radius:50%; background:var(--accent); color:#0e1621; display:flex; align-items:center; justify-content:center; flex:none; transition:transform .15s; }
+  .round:active { transform:scale(.88); }
+
+  /* Login */
+  #login { align-items:center; justify-content:center; padding:24px; gap:12px; }
+  .logo { width:92px; height:92px; border-radius:50%; background:linear-gradient(135deg,#6ab3f3,#3a7bd5); display:flex; align-items:center; justify-content:center; font-size:44px; font-weight:700; color:#fff; box-shadow:0 8px 24px rgba(58,123,213,.4); margin-bottom:6px; }
+  #login h1 { font-size:26px; }
+  #login p { color:var(--muted); font-size:14px; margin-bottom:10px; }
+  #login form { width:100%; max-width:340px; display:flex; flex-direction:column; gap:12px; }
+  #login input { width:100%; padding:14px 16px; border-radius:12px; border:1px solid #2a3a4a; background:var(--panel); color:var(--text); font-size:16px; outline:none; }
+  #login input:focus { border-color:var(--accent); }
+  #loginBtn { padding:14px; border-radius:12px; background:var(--accent); color:#0e1621; font-weight:700; font-size:16px; }
+  #err { color:#ff6b6b; font-size:14px; min-height:18px; text-align:center; }
+
+  /* Header */
+  header { position:relative; display:flex; align-items:center; gap:10px; padding:6px 6px 6px 12px; padding-top:max(6px, env(safe-area-inset-top)); background:var(--panel); box-shadow:0 1px 0 #0b121a; z-index:5; }
+  .avatar { width:42px; height:42px; border-radius:50%; background:linear-gradient(135deg,#6ab3f3,#3a7bd5); display:flex; align-items:center; justify-content:center; font-weight:700; color:#fff; flex:none; }
+  .hl { min-width:0; flex:1; }
+  .title { font-weight:600; font-size:16px; }
+  .sub { font-size:13px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sub.on { color:var(--accent); }
+  .btns { display:flex; }
+  #hmenu { display:none; position:absolute; right:8px; top:100%; background:#1f2c3a; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.5); min-width:170px; padding:6px; z-index:20; }
+  #hmenu.show { display:block; animation:pop .15s; }
+  #who { padding:8px 12px; color:var(--muted); font-size:13px; }
+  #hmenu button { width:100%; text-align:left; padding:10px 12px; border-radius:8px; }
+  #hmenu button:active { background:rgba(255,255,255,.08); }
+
+  /* Call banner */
+  #banner { display:none; align-items:center; justify-content:space-between; gap:8px; padding:8px 12px; background:#1b3a2a; font-size:14px; }
+  #banner.show { display:flex; }
+  #banner .acts { display:flex; gap:6px; }
+  #banner button { padding:6px 14px; border-radius:16px; background:var(--green); color:#fff; font-weight:600; }
+
+  /* Messages */
+  #msgwrap { flex:1; position:relative; min-height:0; display:flex; flex-direction:column;
+    background:radial-gradient(circle at 20% 10%, rgba(106,179,243,.07), transparent 40%), radial-gradient(circle at 80% 90%, rgba(106,179,243,.06), transparent 45%), var(--bg); }
+  #msgs { flex:1; min-height:0; overflow-y:auto; padding:8px 10px; display:flex; flex-direction:column; gap:2px; }
+  .day { align-self:center; background:rgba(23,33,43,.85); padding:3px 12px; border-radius:12px; font-size:13px; color:#cfd9e3; margin:10px 0 6px; }
+  .msg { position:relative; max-width:80%; padding:6px 10px; border-radius:16px; background:var(--in); align-self:flex-start; line-height:1.35; box-shadow:0 1px 1px rgba(0,0,0,.2); transform-origin:bottom left; }
+  .msg.me { background:var(--out); align-self:flex-end; transform-origin:bottom right; }
+  .msg.first { margin-top:6px; }
+  .msg:not(.me):not(.last) { border-bottom-left-radius:6px; }
+  .msg:not(.me):not(.first) { border-top-left-radius:6px; }
+  .msg.me:not(.last) { border-bottom-right-radius:6px; }
+  .msg.me:not(.first) { border-top-right-radius:6px; }
+  .msg:not(.me).last { border-bottom-left-radius:4px; }
+  .msg.me.last { border-bottom-right-radius:4px; }
+  .msg .name { display:none; font-size:13px; font-weight:600; margin-bottom:2px; }
+  .msg.first .name { display:block; }
+  .tx { white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word; }
+  .time { font-size:11px; color:rgba(255,255,255,.55); }
+  .tx .time { float:right; margin:7px 0 -3px 10px; }
+  .time.solo { display:block; text-align:right; margin-top:2px; }
+  .msg.media { padding:3px; }
+  .msg.media .tx { padding:4px 7px 2px; }
+  .msg.media .time.solo { padding:0 6px 2px; }
+  .msg img, .msg video { display:block; max-width:100%; max-height:340px; border-radius:13px; background:#000; }
+  .msg.big { background:none; box-shadow:none; padding:2px 4px; }
+  .msg.big .tx { font-size:52px; line-height:1.15; }
+  .msg.big[data-big="2"] .tx, .msg.big[data-big="3"] .tx { font-size:40px; }
+  .msg.in { animation:pop .22s ease-out; }
+  @keyframes pop { from { opacity:0; transform:translateY(8px) scale(.94); } to { opacity:1; transform:none; } }
+  .msg .quote { border-left:3px solid var(--accent); background:rgba(255,255,255,.07); border-radius:8px; padding:4px 8px; margin:2px 0 4px; font-size:13px; cursor:pointer; }
+  .msg .quote b { display:block; font-size:12px; color:var(--accent); }
+  .msg .quote span { opacity:.85; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .msg .rx { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; }
+  .msg .rx:empty { display:none; }
+  .rxchip { background:rgba(255,255,255,.12); border:1px solid transparent; border-radius:12px; padding:1px 8px; font-size:14px; cursor:pointer; }
+  .rxchip.mine { border-color:var(--accent); background:rgba(106,179,243,.22); }
+  .rxchip.pop { animation:rxpop .35s cubic-bezier(.3,1.7,.5,1); }
+  @keyframes rxpop { from { transform:scale(.2); opacity:0; } to { transform:scale(1); opacity:1; } }
+  .msg.flash { animation:flash 1.2s; }
+  @keyframes flash { 0%,60% { box-shadow:0 0 0 3px rgba(106,179,243,.7); } 100% { box-shadow:0 1px 1px rgba(0,0,0,.2); } }
+
+  /* Voice player */
+  .vm { display:flex; align-items:center; gap:10px; min-width:220px; padding:2px 0; }
+  .vp { width:40px; height:40px; border-radius:50%; background:var(--accent); color:#0e1621; display:flex; align-items:center; justify-content:center; flex:none; }
+  .msg.me .vp { background:#fff; color:#2b5278; }
+  .vp svg { width:22px; height:22px; }
+  .vw { flex:1; display:flex; align-items:center; gap:2px; height:30px; cursor:pointer; }
+  .vw i { flex:1; min-width:2px; max-width:4px; border-radius:2px; background:rgba(255,255,255,.3); display:block; transition:background .1s; }
+  .vw i.on { background:var(--accent); }
+  .msg.me .vw i.on { background:#fff; }
+  .vd { font-size:12px; opacity:.75; min-width:34px; text-align:right; font-variant-numeric:tabular-nums; }
+  .vs { font-size:11px; background:rgba(255,255,255,.15); border-radius:8px; padding:1px 6px; }
+
+  /* Scroll-down button */
+  #down { position:absolute; right:12px; bottom:12px; width:44px; height:44px; border-radius:50%; background:var(--panel); color:#aab8c6; box-shadow:0 2px 8px rgba(0,0,0,.4); display:none; align-items:center; justify-content:center; z-index:6; }
+  #down.show { display:flex; animation:pop .2s; }
+  #badge { position:absolute; top:-6px; right:-2px; min-width:20px; height:20px; border-radius:10px; background:var(--accent); color:#0e1621; font-size:12px; font-weight:700; display:none; align-items:center; justify-content:center; padding:0 5px; }
+  #badge.show { display:flex; }
+
+  /* Footer */
+  #busy { display:none; padding:6px 14px; font-size:13px; color:var(--muted); background:var(--bg); }
+  #busy.show { display:block; }
+  #replybar { display:none; align-items:center; gap:10px; padding:8px 12px; background:var(--panel); border-top:1px solid #0b121a; }
+  #replybar.show { display:flex; }
+  #replybar .rb { flex:1; min-width:0; border-left:3px solid var(--accent); padding-left:8px; font-size:13px; }
+  #replybar .rb b { display:block; color:var(--accent); font-size:12px; }
+  #replybar .rb span { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:.85; }
+  form#send { display:flex; align-items:flex-end; gap:8px; padding:8px; padding-bottom:max(8px, env(safe-area-inset-bottom)); background:var(--bg); }
+  form#send .field { flex:1; display:flex; align-items:center; background:var(--panel); border-radius:24px; padding:0 4px; min-width:0; }
+  form#send #text { flex:1; min-width:0; background:none; border:0; outline:none; color:var(--text); font-size:16px; padding:13px 6px; }
+  #rec { display:none; align-items:center; gap:10px; padding:8px; padding-bottom:max(8px, env(safe-area-inset-bottom)); background:var(--bg); }
+  #rec.show { display:flex; }
+  #rec .panel { flex:1; min-width:0; display:flex; align-items:center; gap:10px; background:var(--panel); border-radius:24px; padding:0 14px; height:46px; }
+  #recDot { width:12px; height:12px; border-radius:50%; background:var(--red); animation:blink 1s infinite; flex:none; }
+  @keyframes blink { 50% { opacity:.25; } }
+  #recTime { font-variant-numeric:tabular-nums; flex:none; }
+  #recWave { flex:1; display:flex; align-items:center; justify-content:flex-end; gap:2px; height:28px; overflow:hidden; }
+  #recWave i { width:3px; border-radius:2px; background:var(--accent); flex:none; }
+  #rec .cancel { color:var(--red); font-weight:600; padding:0 6px; }
+
+  /* Menu sheet */
+  #menu { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:45; align-items:flex-end; }
+  #menu.show { display:flex; }
+  #menu .sheet { width:100%; background:var(--panel); border-radius:18px 18px 0 0; padding:14px 14px max(14px, env(safe-area-inset-bottom)); display:flex; flex-direction:column; gap:8px; animation:slideup .2s ease-out; }
+  @keyframes slideup { from { transform:translateY(40px); opacity:0; } to { transform:none; opacity:1; } }
+  #emojiRow { display:flex; justify-content:space-around; padding-bottom:4px; }
+  #emojiRow button { font-size:30px; padding:6px 8px; border-radius:12px; }
+  #emojiRow button:active { transform:scale(1.25); }
+  #emojiRow button.sel { background:rgba(106,179,243,.25); }
+  #menu .sheet > button { background:#1f2c3a; text-align:left; padding:13px 14px; border-radius:12px; }
+
+  /* Lightbox + effects */
+  #lb { display:none; position:fixed; inset:0; background:rgba(0,0,0,.92); z-index:50; align-items:center; justify-content:center; }
+  #lb.show { display:flex; }
+  #lb img { max-width:100%; max-height:100%; }
+  #fx { position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:70; }
+
+  /* ===== Новое: аватары, профили, страницы ===== */
+.avatar,.mav{background-size:cover;background-position:center;overflow:hidden}
+.avatar.big{width:96px;height:96px;font-size:40px}
+.avatar.sm{width:44px;height:44px;font-size:18px}
+.hinfo{display:flex;align-items:center;gap:10px;flex:1;min-width:0;cursor:pointer;padding:2px 0}
+.msg:not(.me){margin-left:38px}
+.mav{position:absolute;left:-38px;bottom:0;width:32px;height:32px;border-radius:50%;display:none;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;cursor:pointer}
+.msg:not(.me).last .mav{display:flex}
+.svc{align-self:center;background:rgba(23,33,43,.85);padding:3px 12px;border-radius:12px;font-size:13px;color:#cfd9e3;margin:8px 0;text-align:center;max-width:90%}
+.msg.me.read .time{color:#9fdcff}
+#msgwrap{background:var(--bg)}
+#bgLayer,#patLayer,#dimLayer,.lay{position:absolute;inset:0;pointer-events:none;background-size:cover;background-position:center}
+#patLayer,#pvPat{opacity:.07}
+#msgs{position:relative;z-index:1}
+
+.page{display:none;position:fixed;inset:0;background:var(--bg);z-index:60;flex-direction:column}
+.page.show{display:flex;animation:slidein .22s ease-out}
+@keyframes slidein{from{transform:translateX(28px);opacity:0}to{transform:none;opacity:1}}
+.ptitle{font-weight:600;font-size:18px;flex:1}
+.pbody{flex:1;overflow-y:auto;padding-bottom:max(24px,env(safe-area-inset-bottom))}
+.phero{display:flex;flex-direction:column;align-items:center;gap:6px;padding:24px 16px 18px;background:var(--panel)}
+.pname{font-size:20px;font-weight:600}
+.usub{font-size:14px;color:var(--muted)}.usub.on{color:var(--accent)}
+.avwrap{position:relative;cursor:pointer}
+.avwrap .cam{position:absolute;right:-2px;bottom:-2px;width:34px;height:34px;border-radius:50%;background:var(--accent);color:#0e1621;display:flex;align-items:center;justify-content:center;border:3px solid var(--panel)}
+.lnk{color:var(--accent);font-size:14px;padding:4px 10px}
+.fld{padding:12px 16px;background:var(--panel);margin-top:10px}
+.fld label{display:block;font-size:13px;color:var(--accent);margin-bottom:4px}
+.fld input[type=text],.fld input:not([type]){width:100%;background:none;border:0;border-bottom:1px solid #2a3a4a;color:var(--text);font-size:17px;padding:6px 0;outline:none}
+.fld input:focus{border-color:var(--accent)}
+.fld input[type=range]{width:100%;accent-color:var(--accent)}
+.fld .hint{font-size:12px;color:var(--muted);margin-top:8px}
+.fld .val{font-size:16px;overflow-wrap:anywhere}
+.pbtn{display:block;margin:16px;padding:14px;border-radius:12px;background:var(--accent);color:#0e1621;font-weight:700;width:calc(100% - 32px)}
+.pbtn:active{opacity:.85}
+.sect{padding:16px 16px 8px;font-size:14px;color:var(--accent);font-weight:600}
+.row{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--panel);cursor:pointer}
+.row+.row{border-top:1px solid #0f1923}
+.row:active{background:#1c2a38}
+.row .sub.on{color:var(--accent)}
+.row input[type=checkbox]{width:20px;height:20px;accent-color:var(--accent)}
+.hint2{padding:12px 16px;font-size:12px;color:var(--muted)}
+#bgPrev{position:relative;height:190px;overflow:hidden;background:var(--bg)}
+.pvmsgs{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;gap:8px;padding:14px}
+.pvmsgs .msg{margin-left:0!important}
+.bgs{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:4px 16px 14px}
+.bgs button{aspect-ratio:3/4;border-radius:12px;border:2px solid transparent;background-size:cover;background-position:center;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.bgs button.sel{border-color:var(--accent);box-shadow:0 0 0 2px rgba(106,179,243,.35)}
+
+/* звонки в чате */
+.callmsg{display:flex;align-items:center;gap:10px;min-width:180px;padding:2px 6px 0 0;cursor:pointer}
+.callmsg .ci{width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;flex:none}
+.callmsg.missed .ci{background:rgba(229,72,77,.25);color:#ff7b80}
+.callmsg b{display:block;font-weight:600;font-size:15px}
+.callmsg span{font-size:13px;opacity:.7}
+
+/* кружки */
+.msg.rnd{background:none;box-shadow:none;padding:0}
+.msg.rnd .time.solo{position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.5);padding:1px 8px;border-radius:10px;margin:0;color:#fff}
+.rv{position:relative;width:min(240px,62vw);height:min(240px,62vw);border-radius:50%;overflow:hidden;cursor:pointer;background:#000}
+.rv video{width:100%;height:100%;object-fit:cover;max-height:none;border-radius:0}
+.rv .ring{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);pointer-events:none}
+.rv .rd{position:absolute;left:12px;top:12px;background:rgba(0,0,0,.55);border-radius:12px;padding:2px 9px;font-size:12px;font-variant-numeric:tabular-nums}
+#rr{display:none;position:fixed;inset:0;background:rgba(8,12,18,.97);z-index:65;flex-direction:column;align-items:center;justify-content:center;gap:22px}
+#rr.show{display:flex}
+#rrBox{position:relative;width:min(300px,78vw);height:min(300px,78vw)}
+#rrBox video{width:100%;height:100%;border-radius:50%;object-fit:cover;background:#111}
+#rrBox video.mir{transform:scaleX(-1)}
+#rrBox svg{position:absolute;inset:-8px;width:calc(100% + 16px);height:calc(100% + 16px);transform:rotate(-90deg)}
+#rrTime{font-size:20px;font-variant-numeric:tabular-nums}
+.rrbtns{display:flex;gap:30px;align-items:center}
+#rrGo{width:78px;height:78px;border-radius:50%;border:4px solid rgba(255,255,255,.35);display:flex;align-items:center;justify-content:center}
+#rrGo span{display:block;width:56px;height:56px;border-radius:50%;background:var(--red);transition:all .2s}
+#rrGo.rec span{width:28px;height:28px;border-radius:8px}
+#rrHint{font-size:13px;color:var(--muted)}
+
+/* ===== Звонки ===== */
+#call{display:none;position:fixed;inset:0;background:linear-gradient(160deg,#1d2f45,#0e1621 60%,#080c12);z-index:40;flex-direction:column}
+#call.active{display:flex}
+#ctop{position:absolute;top:0;left:0;right:0;z-index:8;text-align:center;padding:max(14px,env(safe-area-inset-top)) 16px 36px;background:linear-gradient(rgba(0,0,0,.55),transparent);pointer-events:none}
+#ctitle{font-weight:600;font-size:17px}
+#cstat{font-size:14px;opacity:.85;font-variant-numeric:tabular-nums}
+#grid{flex:1;display:flex;flex-direction:column;gap:3px;padding:0;min-height:0}
+.tile{position:relative;flex:1;background:#182533;overflow:hidden;min-height:0;display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center}
+.tile video{position:absolute;inset:0;width:100%;height:100%;max-height:none;border-radius:0;object-fit:cover;background:#182533}
+.tile.noVid video{visibility:hidden}
+.tile .tav{position:relative;z-index:1;width:112px;height:112px;font-size:46px;border-radius:50%;display:none;align-items:center;justify-content:center;font-weight:700;color:#fff;background-size:cover;background-position:center}
+.tile.noVid .tav{display:flex}
+.tile.wait .tav{animation:ringp 1.6s infinite}
+@keyframes ringp{0%{box-shadow:0 0 0 0 rgba(106,179,243,.5)}100%{box-shadow:0 0 0 34px rgba(106,179,243,0)}}
+.tile .lbl{position:absolute;left:12px;bottom:112px;font-size:14px;font-weight:600;text-shadow:0 1px 3px #000;z-index:2}
+.tile .st{position:relative;z-index:2;font-size:14px;color:#cfd3de;text-align:center;padding:0 12px;text-shadow:0 1px 3px #000}
+.tile .mico{position:absolute;right:12px;bottom:112px;z-index:2;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;color:#ff7b80}
+.tile .mico svg{width:16px;height:16px}
+#cwait{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+#cwAv{width:132px;height:132px;font-size:54px;animation:ringp 1.6s infinite}
+#pip{position:absolute;right:12px;top:max(70px,calc(env(safe-area-inset-top) + 56px));width:96px;height:132px;object-fit:cover;border-radius:14px;border:2px solid rgba(255,255,255,.2);background:#111;z-index:9;transform:scaleX(-1);display:none;box-shadow:0 4px 16px rgba(0,0,0,.5)}
+#controls{position:absolute;left:0;right:0;bottom:0;z-index:8;display:flex;justify-content:center;gap:16px;padding:40px 14px 14px;padding-bottom:max(20px,env(safe-area-inset-bottom));background:linear-gradient(transparent,rgba(0,0,0,.65))}
+#controls button{width:60px;height:60px;border-radius:50%;padding:0;background:rgba(255,255,255,.16);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;color:#fff}
+#controls button svg{width:26px;height:26px}
+#controls button.off{background:#fff;color:#111}
+#controls button.end{background:var(--red)}
+#inc{display:none;position:fixed;inset:0;z-index:80;background:linear-gradient(160deg,#27425f,#0e1621 70%);flex-direction:column;align-items:center;justify-content:space-between;padding:max(70px,env(safe-area-inset-top)) 24px max(52px,env(safe-area-inset-bottom));text-align:center}
+#inc.show{display:flex;animation:pop .25s}
+#incAv{width:140px;height:140px;font-size:56px;margin:0 auto 18px;animation:ringp 1.6s infinite}
+#inc h2{font-size:26px;font-weight:600}
+#inc p{color:#b6c4d3;margin-top:6px}
+.incbtns{display:flex;gap:72px}
+.incbtns div{display:flex;flex-direction:column;align-items:center;gap:8px;font-size:13px;color:#cfd9e3}
+.cbtn{width:68px;height:68px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff}
+.cbtn svg{width:30px;height:30px}
+.cbtn.g{background:var(--green);animation:wob 1.2s infinite}
+.cbtn.r{background:var(--red)}
+@keyframes wob{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+#emojiRow button.plus{font-size:26px;color:var(--accent);width:44px}
+#emojiPick{display:none}
+#emojiPick.show{display:block}
+#epInput{width:100%;background:#1f2c3a;border:0;border-radius:12px;color:var(--text);font-size:16px;padding:11px 14px;outline:none;margin-bottom:8px}
+#epGrid{display:grid;grid-template-columns:repeat(8,1fr);max-height:210px;overflow-y:auto;gap:2px}
+#epGrid button{font-size:26px;padding:5px 0;border-radius:10px;background:none;text-align:center}
+#epGrid button:active{background:rgba(255,255,255,.12);transform:scale(1.2)}
+</style>
+</head>
+<body>
+
+<section id="login" class="screen active">
+  <div class="logo">M</div>
+  <h1>Messenger L</h1>
+  <p>Приватный чат для своих</p>
+  <form id="loginForm" autocomplete="on">
+    <input id="name" placeholder="Имя" autocapitalize="none" autocomplete="username" required>
+    <input id="pass" type="password" placeholder="Пароль" autocomplete="current-password" required>
+    <button id="loginBtn" type="submit">Войти</button>
+    <div id="err"></div>
+  </form>
+</section>
+
+<section id="chat" class="screen">
+  <header>
+    <div class="hinfo" id="hinfo"><div class="avatar" id="gAv">M</div><div class="hl"><div class="title" id="gTitle">Messenger L</div><div class="sub" id="online"></div></div></div>
+    <div class="btns">
+      <button class="ib" id="callAudio" title="Аудиозвонок"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg></button>
+      <button class="ib" id="callVideo" title="Видеозвонок"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg></button>
+      <button class="ib" id="more" title="Меню"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="19" r="2" fill="currentColor"/></svg></button>
+    </div>
+    <div id="hmenu"><div id="who"></div><button id="mProfile">👤  Мой профиль</button><button id="mGroup">👥  О группе</button><button id="mBg">🖼  Фон чата</button><button id="logout">Выйти</button></div>
+  </header>
+  <div id="banner"><span id="bannerText"></span><span class="acts"><button id="joinAudio">📞</button><button id="joinVideo">🎥</button></span></div>
+  <div id="msgwrap">
+    <div id="bgLayer"></div><div id="patLayer"></div><div id="dimLayer"></div>
+    <div id="msgs"></div>
+    <button id="down" title="Вниз"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg><span id="badge"></span></button>
+  </div>
+  <div id="busy"></div>
+  <div id="replybar"><div class="rb"><b id="rbName"></b><span id="rbText"></span></div><button type="button" id="rbX" class="ib" title="Отмена">✕</button></div>
+  <form id="send" autocomplete="off">
+    <div class="field">
+      <button type="button" class="ib" id="attach" title="Фото или видео"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/></svg></button>
+      <input id="text" placeholder="Сообщение" maxlength="2000">
+      <button type="button" class="ib" id="rrBtn" title="Видеосообщение (кружок)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3.6" fill="currentColor"/></svg></button>
+    </div>
+    <button type="submit" id="sendBtn" class="round" style="display:none" title="Отправить"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
+    <button type="button" id="mic" class="round" title="Голосовое сообщение"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg></button>
+  </form>
+  <div id="rec">
+    <div class="panel"><span id="recDot"></span><span id="recTime">0:00</span><div id="recWave"></div></div>
+    <button type="button" id="recCancel" class="cancel">Отмена</button>
+    <button type="button" id="recSend" class="round" title="Отправить"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
+  </div>
+  <input id="file" type="file" accept="image/*,video/*" hidden>
+</section>
+
+<div id="lb"><img id="lbImg" alt=""></div>
+
+<div id="menu"><div class="sheet">
+  <div id="emojiRow"></div>
+  <div id="emojiPick"><input id="epInput" placeholder="Вставьте любой эмодзи с клавиатуры" autocomplete="off"><div id="epGrid"></div></div>
+  <button type="button" id="mReply">↩️  Ответить</button>
+  <button type="button" id="mCopy">📋  Копировать</button>
+</div></div>
+
+<canvas id="fx"></canvas>
+
+<section class="page" id="pMe">
+  <header><button class="ib" data-close="pMe"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button><div class="ptitle">Мой профиль</div></header>
+  <div class="pbody">
+    <div class="phero">
+      <div class="avwrap" id="meAvWrap"><div class="avatar big" id="meAv"></div><div class="cam"><svg viewBox="0 0 24 24" style="width:18px;height:18px"><path fill="currentColor" d="M12 15.2a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4zM9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg></div></div>
+      <div class="pname" id="meLogin"></div>
+      <button class="lnk" id="meDelAv">Удалить фото</button>
+    </div>
+    <div class="fld"><label>Имя</label><input id="meName" maxlength="24" autocomplete="off"></div>
+    <div class="fld"><label>О себе</label><input id="meBio" maxlength="70" placeholder="Пара слов о себе" autocomplete="off"><div class="hint">Видно всем в чате</div></div>
+    <button class="pbtn" id="meSave">Сохранить</button>
+  </div>
+</section>
+
+<section class="page" id="pGroup">
+  <header><button class="ib" data-close="pGroup"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button><div class="ptitle">О группе</div></header>
+  <div class="pbody">
+    <div class="phero">
+      <div class="avwrap" id="gpAvWrap"><div class="avatar big" id="gpAv"></div><div class="cam"><svg viewBox="0 0 24 24" style="width:18px;height:18px"><path fill="currentColor" d="M12 15.2a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4zM9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg></div></div>
+      <button class="lnk" id="gpDelAv">Удалить фото</button>
+    </div>
+    <div class="fld"><label>Название группы</label><input id="gpTitle" maxlength="40" autocomplete="off"></div>
+    <button class="pbtn" id="gpSave">Сохранить</button>
+    <div class="sect" id="mcount"></div>
+    <div id="members"></div>
+    <div class="sect">Оформление</div>
+    <div class="row" id="gpBg"><span>🖼</span><div class="hl">Фон чата</div></div>
+  </div>
+</section>
+
+<section class="page" id="pUser">
+  <header><button class="ib" data-close="pUser"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button><div class="ptitle">Профиль</div></header>
+  <div class="pbody">
+    <div class="phero"><div class="avatar big" id="uAv"></div><div class="pname" id="uName"></div><div class="usub" id="uStat"></div></div>
+    <div class="fld"><label>О себе</label><div class="val" id="uBio"></div></div>
+    <div class="fld"><label>Логин</label><div class="val" id="uLogin"></div></div>
+  </div>
+</section>
+
+<section class="page" id="pBg">
+  <header><button class="ib" data-close="pBg"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button><div class="ptitle">Фон чата</div></header>
+  <div class="pbody">
+    <div id="bgPrev"><div class="lay" id="pvBg"></div><div class="lay" id="pvPat"></div><div class="lay" id="pvDim"></div>
+      <div class="pvmsgs"><div class="msg">Привет! Как тебе новый фон?</div><div class="msg me">Выглядит отлично 🔥</div></div></div>
+    <div class="sect">Цвет фона</div>
+    <div class="bgs" id="bgGrid"></div>
+    <div class="row" id="bgPick"><span>📷</span><div class="hl">Своё фото из галереи</div></div>
+    <label class="row"><div class="hl">Узор поверх фона</div><input type="checkbox" id="bgPat"></label>
+    <div class="fld"><label>Затемнение</label><input type="range" id="bgDim" min="0" max="70" step="5"></div>
+    <div class="row" id="bgReset" style="color:var(--red)"><div class="hl">Сбросить оформление</div></div>
+    <div class="hint2">Фон сохраняется на этом устройстве — у каждого может быть свой.</div>
+  </div>
+</section>
+
+<div id="rr">
+  <div id="rrBox"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="48" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="2"/><circle id="rrRing" cx="50" cy="50" r="48" fill="none" stroke="#ff5a5f" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="301.6" stroke-dashoffset="301.6"/></svg><video id="rrVid" autoplay muted playsinline></video></div>
+  <div id="rrTime">0:00</div>
+  <div class="rrbtns">
+    <button id="rrX" class="ib" title="Отмена"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+    <button id="rrGo" title="Запись"><span></span></button>
+    <button id="rrFlip" class="ib" title="Сменить камеру"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M20 4h-3.17L15 2H9L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 11.5V13H9v2.5L5.5 12 9 8.5V11h6V8.5l3.5 3.5-3.5 3.5z"/></svg></button>
+  </div>
+  <div id="rrHint">Нажмите, чтобы записать кружок</div>
+</div>
+
+<div id="inc">
+  <div><div class="avatar" id="incAv"></div><h2 id="incName"></h2><p id="incKind"></p></div>
+  <div class="incbtns">
+    <div><button class="cbtn r" id="incNo"><svg viewBox="0 0 24 24" style="transform:rotate(135deg)"><path fill="currentColor" d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg></button><span>Отклонить</span></div>
+    <div><button class="cbtn g" id="incYes"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg></button><span>Принять</span></div>
+  </div>
+</div>
+
+<section id="call">
+  <div id="ctop"><div id="ctitle"></div><div id="cstat">Вызов…</div></div>
+  <div id="grid"></div>
+  <div id="cwait"><div class="avatar" id="cwAv"></div></div>
+  <video id="pip" autoplay playsinline muted></video>
+  <div id="controls">
+    <button id="flip" title="Сменить камеру"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M20 4h-3.17L15 2H9L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 11.5V13H9v2.5L5.5 12 9 8.5V11h6V8.5l3.5 3.5-3.5 3.5z"/></svg></button>
+    <button id="cam" title="Камера"></button>
+    <button id="mute" title="Микрофон"></button>
+    <button id="hang" class="end" title="Завершить"><svg viewBox="0 0 24 24" style="transform:rotate(135deg)"><path fill="currentColor" d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg></button>
+  </div>
+</section>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot, serverTimestamp, doc, setDoc, deleteDoc, getDocs, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCoU2dICPk5nVcP0jA1Z-Y4evWQJvdIw3g",
+  authDomain: "messenger-l.firebaseapp.com",
+  projectId: "messenger-l",
+  storageBucket: "messenger-l.firebasestorage.app",
+  messagingSenderId: "199511334954",
+  appId: "1:199511334954:web:bc2960377f19e8da9fe353"
+};
+
+// Имя пользователя -> почта вида имя@chat.app
+const DOMAIN = "@chat.app";
+
+// Видео и большие файлы: бесплатный Cloudinary (заполни, чтобы включить видео)
+const CLOUD = { cloudName: "xv9f1k1y", uploadPreset: "omar09" };
+
+// Звонки: STUN бесплатный. Если звонки не соединяются в мобильной сети, добавь сюда TURN-сервер
+const TURN = [
+  // { urls: "turn:host:443", username: "...", credential: "..." }
+];
+const ICE = { iceServers: [
+  { urls: "stun:stun.l.google.com:19302" },
+  { urls: "stun:stun1.l.google.com:19302" },
+  ...TURN
+]};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const $ = id => document.getElementById(id);
+const show = id => { document.querySelectorAll("section.screen").forEach(s => s.classList.remove("active")); $(id).classList.add("active"); };
+
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+
+let me = null;
+let unsubMsgs = null, unsubParts = null, partsTimer = null;
+let unsubReact = null, unsubPres = null, presTimer = null;
+
+/* ---------- Вход ---------- */
+$("loginForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  $("err").textContent = "";
+  $("loginBtn").disabled = true;
+  try {
+    const name = $("name").value.trim().toLowerCase();
+    await signInWithEmailAndPassword(auth, name + DOMAIN, $("pass").value);
+  } catch (err) {
+    $("err").textContent = "Неверное имя или пароль";
+  } finally {
+    $("loginBtn").disabled = false;
+  }
+});
+
+$("logout").addEventListener("click", async () => {
+  await hangup();
+  try { if (presenceSet) await presenceSet(false); } catch (_) {}
+  signOut(auth);
+});
+
+onAuthStateChanged(auth, user => {
+  if (unsubMsgs) { unsubMsgs(); unsubMsgs = null; }
+  if (unsubReact) { unsubReact(); unsubReact = null; }
+  if (unsubParts) { unsubParts(); unsubParts = null; }
+  if (partsTimer) { clearInterval(partsTimer); partsTimer = null; }
+  stopPresence();
+  stopUsers();
+  resetChatUI();
+  if (!user) { me = null; show("login"); return; }
+  me = { uid: user.uid, name: user.email.split("@")[0] };
+  $("who").textContent = "Вы: " + me.name;
+  show("chat");
+  startChat();
+  startUsers();
+  startPresence();
+  watchCalls();
+});
+
+/* ---------- Сообщения ---------- */
+function safeMedia(url, type) {
+  if (typeof url !== "string") return false;
+  if (type === "image") return url.startsWith("data:image/") || url.startsWith("https://");
+  if (type === "video") return url.startsWith("https://");
+  if (type === "round") return url.startsWith("https://") || url.startsWith("data:video/");
+  if (type === "audio") return url.startsWith("data:audio/") || url.startsWith("https://");
+  return false;
+}
+
+const EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
+const ICON_PLAY = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>';
+const ICON_PAUSE = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>';
+const NAME_COLORS = ["#e17076", "#eda86c", "#a695e7", "#7bc862", "#6ec9cb", "#65aadd", "#ee7aae"];
+const nameColor = n => { let h = 0; for (const c of String(n)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return NAME_COLORS[h % NAME_COLORS.length]; };
+
+const msgEls = new Map(), dayEls = new Map();
+let msgDocs = [], reactionsByMsg = {}, presence = {}, replyTo = null, menuCtx = null, presenceSet = null;
+let unread = 0, playingAudio = null;
+
+const reduceMotion = () => window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+const buzz = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch (_) {} };
+
+function snippet(m) {
+  if (m.text) return String(m.text).slice(0, 100);
+  if (m.mediaType === "image") return "📷 Фото";
+  if (m.mediaType === "video") return "🎥 Видео";
+  if (m.mediaType === "audio") return "🎤 Голосовое";
+  if (m.mediaType === "round") return "⭕ Видеосообщение";
+  if (m.type === "call") return "📞 Звонок";
+  return "";
+}
+const fmtClock = d => d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+const fmtTime = s => Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+
+function emojiOnly(t) {
+  if (!t) return 0;
+  const s = String(t).replace(/\s/g, "");
+  if (!s || !/^[\p{Extended_Pictographic}\p{Emoji_Modifier}️‍⃣]+$/u.test(s)) return 0;
+  const n = typeof Intl !== "undefined" && Intl.Segmenter
+    ? [...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(s)].length
+    : [...s].length;
+  return n <= 3 ? n : 0;
+}
+
+/* ---------- Эффекты (конфетти, летящие смайлики) ---------- */
+const fxc = $("fx"), fctx = fxc.getContext("2d");
+let fxParts = [], fxRun = false;
+function fxSize() {
+  const d = window.devicePixelRatio || 1;
+  fxc.width = Math.round(innerWidth * d); fxc.height = Math.round(innerHeight * d);
+  fctx.setTransform(d, 0, 0, d, 0, 0);
+}
+function fxStart() { if (!fxRun) { fxRun = true; requestAnimationFrame(fxLoop); } }
+function fxLoop() {
+  fctx.clearRect(0, 0, innerWidth, innerHeight);
+  fxParts = fxParts.filter(p => p.life > 0 && p.y < innerHeight + 80 && p.y > -120);
+  for (const p of fxParts) {
+    p.t += 0.08;
+    p.x += p.vx + (p.sway ? Math.sin(p.t) * p.sway : 0);
+    p.y += p.vy; p.vy += p.g; p.rot += p.vr; p.life--;
+    fctx.save();
+    fctx.globalAlpha = Math.min(1, p.life / 30);
+    fctx.translate(p.x, p.y); fctx.rotate(p.rot);
+    if (p.emoji) { fctx.font = p.size + "px sans-serif"; fctx.textAlign = "center"; fctx.textBaseline = "middle"; fctx.fillText(p.emoji, 0, 0); }
+    else { fctx.fillStyle = p.color; fctx.fillRect(-p.size / 2, -p.size / 3, p.size, p.size * 0.6); }
+    fctx.restore();
+  }
+  if (fxParts.length) requestAnimationFrame(fxLoop);
+  else { fxRun = false; fctx.clearRect(0, 0, innerWidth, innerHeight); }
+}
+function confetti() {
+  if (reduceMotion()) return;
+  fxSize();
+  const cols = ["#ff5252", "#ffb142", "#ffd93d", "#4fd66a", "#4cc9f0", "#6ab3f3", "#b97aff", "#ff7ac3"];
+  for (let i = 0; i < 120; i++) fxParts.push({
+    x: Math.random() * innerWidth, y: -20 - Math.random() * 260,
+    vx: (Math.random() - .5) * 3, vy: 2 + Math.random() * 3, g: .04,
+    rot: Math.random() * 6, vr: (Math.random() - .5) * .3, size: 8 + Math.random() * 8,
+    color: cols[i % cols.length], life: 240 + Math.random() * 90, t: Math.random() * 6, sway: 0
+  });
+  fxStart();
+}
+function floatEmoji(e, n) {
+  if (reduceMotion()) return;
+  fxSize();
+  for (let i = 0; i < n; i++) fxParts.push({
+    x: Math.random() * innerWidth, y: innerHeight + 30 + Math.random() * 140,
+    vx: 0, vy: -(3 + Math.random() * 3), g: 0,
+    rot: (Math.random() - .5) * .4, vr: (Math.random() - .5) * .02, size: 28 + Math.random() * 30,
+    emoji: e, life: 160 + Math.random() * 70, t: Math.random() * 6, sway: .8
+  });
+  fxStart();
+}
+function effectFor(text) {
+  const all = [...String(text).matchAll(/\p{Extended_Pictographic}/gu)].map(x => x[0]);
+  if (!all.length) return;
+  const f = all[0];
+  if ("🎉🎊🥳".includes(f)) confetti();
+  else if ("❤💕💖💗😍🥰😘".includes(f)) floatEmoji(f === "❤" ? "❤️" : f, 18);
+  else floatEmoji(f, 14);
+}
+
+/* ---------- Голосовой плеер с волной ---------- */
+function fakeWave(seed) {
+  let h = 7; for (const c of String(seed)) h = (h * 33 + c.charCodeAt(0)) >>> 0;
+  return Array.from({ length: 40 }, () => { h = (h * 1103515245 + 12345) >>> 0; return 6 + (h >>> 16) % 24; });
+}
+function buildVoice(m) {
+  const wrap = document.createElement("div"); wrap.className = "vm";
+  const audio = document.createElement("audio");
+  audio.src = m.mediaUrl; audio.preload = "metadata";
+  const btn = document.createElement("button");
+  btn.type = "button"; btn.className = "vp"; btn.innerHTML = ICON_PLAY;
+  const wave = document.createElement("div"); wave.className = "vw";
+  const vals = Array.isArray(m.wave) && m.wave.length ? m.wave : fakeWave(m.mediaUrl);
+  const bars = vals.slice(0, 48).map(v => {
+    const i = document.createElement("i");
+    i.style.height = (14 + Math.max(0, Math.min(31, +v || 0)) * 86 / 31) + "%";
+    wave.appendChild(i); return i;
+  });
+  const total = () => (isFinite(audio.duration) && audio.duration > 0 ? audio.duration : (+m.duration || 0));
+  const dur = document.createElement("span"); dur.className = "vd"; dur.textContent = fmtTime(Math.round(+m.duration || 0));
+  const spd = document.createElement("button"); spd.type = "button"; spd.className = "vs"; spd.textContent = "1×";
+  const paint = () => {
+    const t = total(), r = t ? audio.currentTime / t : 0;
+    const k = Math.round(r * bars.length);
+    bars.forEach((b, i) => b.classList.toggle("on", i < k));
+    dur.textContent = fmtTime(Math.round(audio.paused && audio.currentTime === 0 ? t : (audio.currentTime || 0)));
+  };
+  btn.onclick = () => {
+    if (audio.paused) {
+      if (playingAudio && playingAudio !== audio) playingAudio.pause();
+      playingAudio = audio; audio.play().catch(() => {});
+    } else audio.pause();
+  };
+  audio.addEventListener("play", () => { btn.innerHTML = ICON_PAUSE; });
+  audio.addEventListener("pause", () => { btn.innerHTML = ICON_PLAY; });
+  audio.addEventListener("ended", () => { audio.currentTime = 0; btn.innerHTML = ICON_PLAY; paint(); });
+  audio.addEventListener("timeupdate", paint);
+  audio.addEventListener("loadedmetadata", paint);
+  wave.onclick = e => {
+    const rc = wave.getBoundingClientRect(), t = total();
+    if (t) { audio.currentTime = Math.max(0, Math.min(1, (e.clientX - rc.left) / rc.width)) * t; paint(); }
+  };
+  const rates = [1, 1.5, 2];
+  spd.onclick = () => {
+    const k = (rates.indexOf(audio.playbackRate) + 1) % rates.length;
+    audio.playbackRate = rates[k]; spd.textContent = rates[k] + "×";
+  };
+  wrap.append(btn, wave, dur, spd, audio);
+  return wrap;
+}
+
+/* ---------- Сообщения ---------- */
+function resetChatUI() {
+  msgEls.clear(); dayEls.clear();
+  $("msgs").replaceChildren();
+  msgDocs = []; reactionsByMsg = {}; unread = 0; setBadge();
+  replyTo = null; $("replybar").classList.remove("show");
+  $("online").textContent = ""; $("online").classList.remove("on");
+  $("menu").classList.remove("show"); $("hmenu").classList.remove("show"); menuCtx = null;
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("show"));
+  $("rr").classList.remove("show"); hideIncoming();
+}
+
+function buildMsg(id, m) {
+  if (m.type === "service") { const sv = document.createElement("div"); sv.className = "svc"; sv.dataset.id = id; sv.textContent = m.text || ""; return sv; }
+  const mine = m.uid === me.uid;
+  const hasMedia = safeMedia(m.mediaUrl, m.mediaType);
+  const isRound = hasMedia && m.mediaType === "round", isCall = m.type === "call";
+  const big = hasMedia ? 0 : emojiOnly(m.text);
+  const el = document.createElement("div");
+  el.className = "msg" + (mine ? " me" : "") + (hasMedia && m.mediaType !== "audio" && !isRound ? " media" : "") + (big ? " big" : "") + (isRound ? " rnd" : "");
+  el.dataset.id = id;
+  if (big) el.dataset.big = String(big);
+  if (!mine) {
+    const n = document.createElement("div");
+    n.className = "name"; n.dataset.uid = m.uid; n.dataset.nm = m.name || "?"; n.textContent = dn(m.uid, m.name || "?"); n.style.color = nameColor(m.name || "?");
+    el.appendChild(n);
+    const av = document.createElement("div"); av.className = "mav"; av.dataset.uid = m.uid; av.dataset.nm = m.name || "?";
+    paintAv(av, m.uid, m.name || "?");
+    av.onclick = ev => { ev.stopPropagation(); openUser(m.uid); };
+    el.appendChild(av);
+  }
+  if (m.replyTo && typeof m.replyTo === "object") {
+    const q = document.createElement("div"); q.className = "quote";
+    const qn = document.createElement("b"); qn.textContent = String(m.replyTo.name || "?");
+    const qt = document.createElement("span"); qt.textContent = String(m.replyTo.text || "");
+    q.append(qn, qt);
+    q.onclick = () => scrollToMsg(m.replyTo.id);
+    el.appendChild(q);
+  }
+  if (hasMedia) {
+    if (m.mediaType === "image") {
+      const im = document.createElement("img");
+      im.src = m.mediaUrl; im.loading = "lazy";
+      im.onclick = () => { $("lbImg").src = m.mediaUrl; $("lb").classList.add("show"); };
+      el.appendChild(im);
+    } else if (m.mediaType === "audio") {
+      el.appendChild(buildVoice(m));
+    } else if (m.mediaType === "round") {
+      el.appendChild(buildRound(m));
+    } else {
+      const v = document.createElement("video");
+      v.src = m.mediaUrl; v.controls = true; v.playsInline = true; v.preload = "metadata";
+      el.appendChild(v);
+    }
+  }
+  if (isCall) el.appendChild(buildCall(m, mine));
+  const timeEl = document.createElement("span"); timeEl.className = "time";
+  const inline = !!m.text && !big;
+  if (m.text) {
+    const t = document.createElement("div"); t.className = "tx"; t.textContent = m.text;
+    if (inline) t.appendChild(timeEl);
+    el.appendChild(t);
+  }
+  if (!inline) { timeEl.classList.add("solo"); el.appendChild(timeEl); }
+  const rx = document.createElement("div"); rx.className = "rx"; el.appendChild(rx);
+
+  el.addEventListener("click", e => {
+    if (e.target.closest("video,audio,img,.rxchip,.quote,.vm,.rv,.mav")) return;
+    if (isCall) { joinCall(!!m.video); return; }
+    openMenu(id, m);
+  });
+  el.addEventListener("contextmenu", e => { e.preventDefault(); openMenu(id, m); });
+
+  // свайп вправо = ответить
+  let sx = 0, sy = 0, sdx = 0, skip = false;
+  el.addEventListener("touchstart", e => {
+    const t = e.touches[0]; sx = t.clientX; sy = t.clientY; sdx = 0;
+    skip = !!e.target.closest("video,audio,.vm,.rv");
+  }, { passive: true });
+  el.addEventListener("touchmove", e => {
+    if (skip) return;
+    const t = e.touches[0];
+    if (Math.abs(t.clientY - sy) > 24) { sdx = 0; el.style.transform = ""; return; }
+    sdx = t.clientX - sx;
+    el.style.transform = sdx > 0 ? `translateX(${Math.min(sdx, 70)}px)` : "";
+  }, { passive: true });
+  el.addEventListener("touchend", () => {
+    el.style.transform = "";
+    if (!skip && sdx > 60) { buzz(12); startReply(id, m); }
+    sdx = 0;
+  });
+  return el;
+}
+
+function renderRx(el, id) {
+  const box = el.querySelector(".rx");
+  const r = reactionsByMsg[id] || {};
+  const agg = {};
+  Object.entries(r).forEach(([uid, x]) => {
+    const a = agg[x.emoji] = agg[x.emoji] || { n: 0, mine: false, names: [] };
+    a.n++; a.names.push(x.name || "?");
+    if (uid === me.uid) a.mine = true;
+  });
+  const prev = el._rk || new Set(), now = new Set();
+  box.replaceChildren(...Object.entries(agg).map(([emo, a]) => {
+    const key = emo + "#" + a.n; now.add(key);
+    const b = document.createElement("span");
+    b.className = "rxchip" + (a.mine ? " mine" : "") + (prev.has(key) ? "" : " pop");
+    b.textContent = emo + (a.n > 1 ? " " + a.n : "");
+    b.title = a.names.join(", ");
+    b.onclick = () => setReaction(id, emo);
+    return b;
+  }));
+  el._rk = now;
+}
+
+function setBadge() {
+  $("badge").textContent = unread > 99 ? "99+" : String(unread);
+  $("badge").classList.toggle("show", unread > 0);
+}
+
+let initialLoaded = false;
+function renderMsgs(pending, onlyRx) {
+  if (!me) return;
+  const box = $("msgs");
+  const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 160;
+  const expected = [], seen = new Set(), created = [];
+  const items = msgDocs.map(({ id, data: m }) => ({ id, m, date: m.createdAt && m.createdAt.toDate ? m.createdAt.toDate() : new Date() }));
+  const dayOf = d => d.toDateString();
+  let lastDay = "";
+  items.forEach((it, i) => {
+    const { id, m, date } = it, prev = items[i - 1], next = items[i + 1];
+    seen.add(id);
+    const dk = dayOf(date);
+    const first = !prev || prev.m.uid !== m.uid || prev.m.type === "service" || m.type === "service" || date - prev.date > 300000 || dayOf(prev.date) !== dk;
+    const last = !next || next.m.uid !== m.uid || next.m.type === "service" || m.type === "service" || next.date - date > 300000 || dayOf(next.date) !== dk;
+    if (dk !== lastDay) {
+      let dv = dayEls.get(dk);
+      if (!dv) { dv = document.createElement("div"); dv.className = "day"; dv.textContent = date.toLocaleDateString("ru-RU", { day: "numeric", month: "long" }); dayEls.set(dk, dv); }
+      expected.push(dv); lastDay = dk;
+    }
+    let el = msgEls.get(id);
+    if (!el) {
+      el = buildMsg(id, m); msgEls.set(id, el);
+      if (initialLoaded && !reduceMotion()) el.classList.add("in");
+      created.push({ m, date });
+    }
+    if (m.type === "service") { expected.push(el); return; }
+    el.classList.toggle("first", first); el.classList.toggle("last", last);
+    const rd = m.uid === me.uid && !!m.createdAt && readBy(date);
+    el.querySelector(".time").textContent = fmtClock(date) + (m.uid === me.uid ? (m.createdAt ? (rd ? " ✓✓" : " ✓") : " 🕓") : "");
+    el.classList.toggle("read", rd);
+    renderRx(el, id);
+    expected.push(el);
+  });
+  for (const [id, el] of msgEls) if (!seen.has(id)) { el.remove(); msgEls.delete(id); }
+  let cur = box.firstChild;
+  expected.forEach(n => { if (n === cur) cur = cur.nextSibling; else box.insertBefore(n, cur); });
+  while (cur) { const nx = cur.nextSibling; cur.remove(); cur = nx; }
+  if (!onlyRx) {
+    created.forEach(({ m, date }) => {
+      if (!initialLoaded || Date.now() - date > 20000 || m.type === "service") return;
+      if (m.uid !== me.uid && !nearBottom) unread++;
+      if (!m.mediaUrl && emojiOnly(m.text)) effectFor(m.text);
+    });
+    if (nearBottom || pending) { box.scrollTop = box.scrollHeight; unread = 0; }
+    setBadge();
+    if (items.length) initialLoaded = true;
+  }
+  markRead();
+}
+
+function startChat() {
+  initialLoaded = false;
+  const q = query(collection(db, "messages"), orderBy("createdAt", "desc"), limit(100));
+  unsubMsgs = onSnapshot(q, snap => {
+    msgDocs = snap.docs.slice().reverse().map(d => ({ id: d.id, data: d.data() }));
+    renderMsgs(snap.metadata && snap.metadata.hasPendingWrites, false);
+  }, err => console.error(err));
+  unsubReact = onSnapshot(collection(db, "reactions"), snap => {
+    const r = {};
+    snap.docs.forEach(d => {
+      const x = d.data();
+      if (!x.msgId || !x.uid) return;
+      (r[x.msgId] = r[x.msgId] || {})[x.uid] = { emoji: String(x.emoji || ""), name: x.name };
+    });
+    reactionsByMsg = r;
+    renderMsgs(false, true);
+  }, err => console.error(err));
+  setTimeout(() => { const b = $("msgs"); b.scrollTop = b.scrollHeight; }, 500);
+}
+
+function scrollToMsg(id) {
+  const el = msgEls.get(id);
+  if (!el) return;
+  el.scrollIntoView({ block: "center", behavior: "smooth" });
+  el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash");
+}
+
+$("msgs").addEventListener("scroll", () => {
+  const b = $("msgs"), dist = b.scrollHeight - b.scrollTop - b.clientHeight;
+  $("down").classList.toggle("show", dist > 260);
+  if (dist < 80 && unread) { unread = 0; setBadge(); }
+  if (dist < 80) markRead();
+}, { passive: true });
+$("down").onclick = () => { const b = $("msgs"); b.scrollTo({ top: b.scrollHeight, behavior: "smooth" }); unread = 0; setBadge(); };
+
+$("more").onclick = e => { e.stopPropagation(); $("who").textContent = me ? "Вы: " + me.name : ""; $("hmenu").classList.toggle("show"); };
+document.addEventListener("click", () => $("hmenu").classList.remove("show"));
+
+/* ---------- Реакции, ответы, меню ---------- */
+async function setReaction(id, emoji) {
+  if (!me) return;
+  const ref = doc(db, "reactions", id + "_" + me.uid);
+  const cur = reactionsByMsg[id] && reactionsByMsg[id][me.uid];
+  try {
+    if (cur && cur.emoji === emoji) await deleteDoc(ref);
+    else { buzz(10); floatEmoji(emoji, 6); await setDoc(ref, { msgId: id, uid: me.uid, name: me.name, emoji, at: Date.now() }); }
+  } catch (err) { alert("Не получилось: " + err.message); }
+}
+
+function openMenu(id, m) {
+  menuCtx = { id, m };
+  const mineR = reactionsByMsg[id] && reactionsByMsg[id][me.uid];
+  $("emojiRow").replaceChildren(...EMOJIS.map(emo => {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = emo;
+    if (mineR && mineR.emoji === emo) b.className = "sel";
+    b.onclick = () => { closeMenu(); setReaction(id, emo); };
+    return b;
+  }));
+  const plus = document.createElement("button");
+  plus.type = "button"; plus.className = "plus"; plus.textContent = "＋";
+  plus.onclick = () => $("emojiPick").classList.toggle("show");
+  $("emojiRow").appendChild(plus);
+  $("emojiPick").classList.remove("show"); $("epInput").value = "";
+  $("mCopy").style.display = m.text ? "" : "none";
+  $("menu").classList.add("show");
+  buzz(8);
+}
+function closeMenu() { $("menu").classList.remove("show"); $("emojiPick").classList.remove("show"); menuCtx = null; }
+$("menu").addEventListener("click", e => { if (e.target === $("menu")) closeMenu(); });
+$("mReply").onclick = () => { const c = menuCtx; closeMenu(); if (c) startReply(c.id, c.m); };
+$("mCopy").onclick = async () => {
+  const c = menuCtx; closeMenu();
+  if (c && c.m.text) { try { await navigator.clipboard.writeText(c.m.text); } catch (_) {} }
+};
+
+function startReply(id, m) {
+  replyTo = { id, name: m.name || "?", text: snippet(m) };
+  $("rbName").textContent = replyTo.name;
+  $("rbText").textContent = replyTo.text;
+  $("replybar").classList.add("show");
+  $("text").focus();
+}
+function clearReply() { replyTo = null; $("replybar").classList.remove("show"); }
+$("rbX").onclick = clearReply;
+
+async function sendMsg(fields) {
+  const data = { text: "", name: me.name, uid: me.uid, createdAt: serverTimestamp(), ...fields };
+  if (replyTo) data.replyTo = replyTo;
+  await addDoc(collection(db, "messages"), data);
+  clearReply();
+  if (presPatch) presPatch({ typing: 0 });
+}
+
+/* ---------- Кто в сети ---------- */
+function presVis() { if (me && presenceSet) presenceSet(document.visibilityState === "visible"); markRead(); }
+function presOff() { if (presenceSet) presenceSet(false); }
+function startPresence() {
+  const ref = doc(db, "presence", me.uid);
+  presPatch = obj => setDoc(ref, { name: me.name, beat: Date.now(), ...obj }, { merge: true }).catch(() => {});
+  presenceSet = online => presPatch({ online });
+  if (document.visibilityState === "visible") presenceSet(true);
+  presTimer = setInterval(() => {
+    if (document.visibilityState === "visible") presenceSet(true);
+    renderPresence();
+  }, 60000);
+  document.addEventListener("visibilitychange", presVis);
+  window.addEventListener("pagehide", presOff);
+  unsubPres = onSnapshot(collection(db, "presence"), snap => {
+    presence = {};
+    snap.docs.forEach(d => { presence[d.id] = d.data(); });
+    renderPresence();
+    renderMsgs(false, true);
+    if ($("pGroup").classList.contains("show")) renderMembers();
+    if ($("pUser").classList.contains("show")) renderUser();
+  }, err => console.error(err));
+}
+function stopPresence() {
+  if (presTimer) { clearInterval(presTimer); presTimer = null; }
+  document.removeEventListener("visibilitychange", presVis);
+  window.removeEventListener("pagehide", presOff);
+  if (unsubPres) { unsubPres(); unsubPres = null; }
+  presence = {}; presenceSet = null; presPatch = null;
+}
+function statusOf(uid) {
+  if (me && uid === me.uid) return { t: "в сети", on: true };
+  const p = presence[uid];
+  if (!p || !p.beat) return { t: "не в сети", on: false };
+  if (p.online && Date.now() - p.beat < 150000) return { t: "в сети", on: true };
+  const d = new Date(p.beat), same = d.toDateString() === new Date().toDateString();
+  return { t: "был(а) " + (same ? "в " + fmtClock(d) : d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" }) + " в " + fmtClock(d)), on: false };
+}
+let typTimer = null;
+function renderPresence() {
+  if (!me) return;
+  const now = Date.now(), typers = [];
+  let onl = 1;
+  Object.entries(presence).filter(([uid]) => uid !== me.uid).forEach(([uid, p]) => {
+    if (p.typing && now - p.typing < 4500) typers.push(dn(uid, p.name));
+    if (statusOf(uid).on) onl++;
+  });
+  const total = Math.max(Object.keys(usersMap).length, Object.keys(presence).length, MEMBERS.length);
+  let txt;
+  if (typers.length) txt = typers.join(", ") + (typers.length > 1 ? " печатают…" : " печатает…");
+  else txt = pl(total, "участник", "участника", "участников") + ", " + onl + " в сети";
+  $("online").textContent = txt;
+  $("online").classList.toggle("on", typers.length > 0 || onl > 1);
+  clearTimeout(typTimer);
+  if (typers.length) typTimer = setTimeout(renderPresence, 4600);
+}
+
+$("lb").addEventListener("click", () => $("lb").classList.remove("show"));
+
+$("send").onsubmit = async e => {
+  e.preventDefault();
+  const text = $("text").value.trim();
+  if (!text || !me) return;
+  $("text").value = ""; toggleSendMic();
+  try {
+    await sendMsg({ text });
+  } catch (err) {
+    alert("Не отправилось: " + err.message);
+    $("text").value = text; toggleSendMic();
+  }
+};
+
+/* ---------- Фото и видео ---------- */
+function setBusy(msg) { const b = $("busy"); b.textContent = msg || ""; b.classList.toggle("show", !!msg); }
+
+function compressImage(file, max = 1280, q = 0.72) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    const u = URL.createObjectURL(file);
+    img.onload = () => {
+      let w = img.naturalWidth, h = img.naturalHeight;
+      const s = Math.min(1, max / Math.max(w, h));
+      w = Math.round(w * s); h = Math.round(h * s);
+      const c = document.createElement("canvas");
+      c.width = w; c.height = h;
+      c.getContext("2d").drawImage(img, 0, 0, w, h);
+      let qq = q, out = c.toDataURL("image/jpeg", qq);
+      while (out.length > 800000 && qq > 0.3) { qq -= 0.1; out = c.toDataURL("image/jpeg", qq); }
+      URL.revokeObjectURL(u);
+      res(out);
+    };
+    img.onerror = () => { URL.revokeObjectURL(u); rej(new Error("Не удалось прочитать фото")); };
+    img.src = u;
+  });
+}
+
+$("attach").onclick = () => $("file").click();
+$("file").onchange = async e => {
+  const f = e.target.files[0];
+  e.target.value = "";
+  if (!f || !me) return;
+  const isVid = f.type.startsWith("video/"), isImg = f.type.startsWith("image/");
+  if (!isVid && !isImg) { alert("Можно отправлять только фото и видео"); return; }
+  const cloud = CLOUD.cloudName && CLOUD.uploadPreset;
+  if (isVid && !cloud) { alert("Для видео нужно подключить Cloudinary (бесплатно). Фото работают без него."); return; }
+  setBusy(isVid ? "Загрузка видео…" : "Отправка фото…");
+  try {
+    let url;
+    if (cloud) {
+      const fd = new FormData();
+      fd.append("file", f);
+      fd.append("upload_preset", CLOUD.uploadPreset);
+      const r = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD.cloudName}/auto/upload`, { method: "POST", body: fd });
+      const j = await r.json();
+      if (!j.secure_url) throw new Error((j.error && j.error.message) || "ошибка загрузки");
+      url = j.secure_url;
+    } else {
+      url = await compressImage(f);
+    }
+    await sendMsg({ mediaType: isVid ? "video" : "image", mediaUrl: url });
+  } catch (err) {
+    alert("Не отправилось: " + err.message);
+  } finally {
+    setBusy("");
+  }
+};
+
+/* ---------- Голосовые сообщения ---------- */
+let recorder = null, recChunks = [], recStream = null, recTimer = null, recStart = 0, recCancelled = false;
+let recAC = null, recAN = null, recLevels = [], recLevelTimer = null;
+
+function blobToDataURL(b) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = () => rej(new Error("Не удалось прочитать запись"));
+    r.readAsDataURL(b);
+  });
+}
+function pickMime() {
+  const c = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"];
+  return c.find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || "";
+}
+function makeWave(levels, n = 40) {
+  if (!levels.length) return [];
+  const out = [], step = levels.length / n;
+  for (let i = 0; i < n; i++) {
+    const a = Math.floor(i * step), b = Math.max(a + 1, Math.floor((i + 1) * step));
+    let mx = 0; for (let j = a; j < b && j < levels.length; j++) mx = Math.max(mx, levels[j]);
+    out.push(mx);
+  }
+  const peak = Math.max(...out, 0.05);
+  return out.map(v => Math.round(Math.min(1, v / peak) * 31));
+}
+function drawRecWave() {
+  $("recWave").replaceChildren(...recLevels.slice(-30).map(l => {
+    const i = document.createElement("i"); i.style.height = (12 + l * 88) + "%"; return i;
+  }));
+}
+
+function toggleSendMic() {
+  const has = $("text").value.trim().length > 0;
+  $("sendBtn").style.display = has ? "" : "none";
+  $("mic").style.display = has ? "none" : "";
+}
+$("text").addEventListener("input", toggleSendMic);
+
+function cleanupRec() {
+  clearInterval(recTimer); recTimer = null;
+  clearInterval(recLevelTimer); recLevelTimer = null;
+  if (recStream) { recStream.getTracks().forEach(t => t.stop()); recStream = null; }
+  if (recAC) { try { recAC.close(); } catch (_) {} recAC = null; recAN = null; }
+  $("rec").classList.remove("show");
+  $("send").style.display = "";
+  toggleSendMic();
+}
+
+async function startRec() {
+  if (recorder) return;
+  if (typeof inCall !== "undefined" && inCall) { alert("Во время звонка запись недоступна"); return; }
+  if (!navigator.mediaDevices || !window.MediaRecorder) { alert("Браузер не поддерживает запись голоса"); return; }
+  try {
+    recStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1, sampleRate: 48000 }
+    });
+  } catch (err) { alert("Нет доступа к микрофону: " + err.message); return; }
+  const mime = pickMime();
+  recChunks = []; recCancelled = false; recLevels = [];
+  const opts = mime ? { mimeType: mime, audioBitsPerSecond: 96000 } : { audioBitsPerSecond: 96000 };
+  try { recorder = new MediaRecorder(recStream, opts); }
+  catch (err) { cleanupRec(); alert("Не удалось начать запись"); return; }
+  recorder.ondataavailable = e => { if (e.data && e.data.size) recChunks.push(e.data); };
+  recorder.onstop = onRecStop;
+  try {
+    recAC = new (window.AudioContext || window.webkitAudioContext)();
+    const src = recAC.createMediaStreamSource(recStream);
+    recAN = recAC.createAnalyser(); recAN.fftSize = 512; src.connect(recAN);
+  } catch (_) { recAC = null; recAN = null; }
+  const buf = recAN ? new Uint8Array(recAN.fftSize) : null;
+  recLevelTimer = setInterval(() => {
+    let lvl = 0.2;
+    if (recAN) {
+      recAN.getByteTimeDomainData(buf);
+      let sum = 0; for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
+      lvl = Math.min(1, Math.sqrt(sum / buf.length) * 3.2);
+    }
+    recLevels.push(lvl); drawRecWave();
+  }, 100);
+  recorder.start();
+  recStart = Date.now();
+  buzz(15);
+  $("send").style.display = "none";
+  $("rec").classList.add("show");
+  $("recTime").textContent = "0:00";
+  recTimer = setInterval(() => {
+    const s = Math.floor((Date.now() - recStart) / 1000);
+    $("recTime").textContent = fmtTime(s);
+    if (s >= 300) stopRec(false);
+  }, 250);
+}
+
+function stopRec(cancel) {
+  if (!recorder) return;
+  recCancelled = !!cancel;
+  try { recorder.stop(); } catch (_) { onRecStop(); }
+}
+
+async function onRecStop() {
+  const r = recorder;
+  if (!r) return;
+  recorder = null;
+  const dur = Math.round((Date.now() - recStart) / 1000);
+  const type = r.mimeType || "audio/webm";
+  const wave = makeWave(recLevels);
+  cleanupRec();
+  if (recCancelled || dur < 1 || !recChunks.length || !me) { recChunks = []; return; }
+  const blob = new Blob(recChunks, { type });
+  recChunks = [];
+  setBusy("Отправка голосового…");
+  try {
+    let url;
+    if (CLOUD.cloudName && CLOUD.uploadPreset) {
+      const ext = type.includes("mp4") ? "m4a" : type.includes("ogg") ? "ogg" : "webm";
+      const fd = new FormData();
+      fd.append("file", blob, "voice." + ext);
+      fd.append("upload_preset", CLOUD.uploadPreset);
+      const resp = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD.cloudName}/auto/upload`, { method: "POST", body: fd });
+      const j = await resp.json();
+      if (!j.secure_url) throw new Error((j.error && j.error.message) || "ошибка загрузки");
+      url = j.secure_url;
+    } else {
+      if (blob.size > 600000) throw new Error("Запись слишком длинная (нужен Cloudinary)");
+      url = await blobToDataURL(blob);
+    }
+    await sendMsg({ mediaType: "audio", mediaUrl: url, duration: dur, wave });
+  } catch (err) {
+    alert("Не отправилось: " + err.message);
+  } finally {
+    setBusy("");
+  }
+}
+
+$("mic").onclick = startRec;
+$("recCancel").onclick = () => stopRec(true);
+$("recSend").onclick = () => stopRec(false);
+
+/* ---------- Профили, группа, фон, кружки ---------- */
+let usersMap = {}, groupInfo = {}, unsubUsers = null, unsubGroup = null, presPatch = null;
+let pendingMeAv, pendingGAv, curUser = null, lastReadSent = 0, lastTyping = 0;
+const cap = t => t ? t[0].toUpperCase() + t.slice(1) : t;
+const MEMBERS = ["omar", "imash", "akzhol"];
+const nmOf = uid => String(uid).startsWith("pending:") ? uid.slice(8) : (usersMap[uid] && usersMap[uid].name) || (presence[uid] && presence[uid].name) || "?";
+const dn = (uid, fb) => (usersMap[uid] && usersMap[uid].displayName) || cap(fb || nmOf(uid));
+const pl = (n, a, b, c) => { const m = n % 100, k = n % 10; return n + " " + (m > 10 && m < 20 ? c : k === 1 ? a : k > 1 && k < 5 ? b : c); };
+const groupTitle = () => groupInfo.title || "Messenger L";
+
+function paintAvData(el, img, label, seed) {
+  if (img && /^(data:image\/|https:\/\/)/.test(img)) { el.style.backgroundImage = 'url("' + img + '")'; el.textContent = ""; }
+  else { const c = nameColor(seed || label || "?"); el.style.backgroundImage = "linear-gradient(135deg," + c + "," + c + "99)"; el.textContent = (label || "?").trim()[0] ? (label || "?").trim()[0].toUpperCase() : "?"; }
+}
+function paintAv(el, uid, name) { const u = usersMap[uid]; paintAvData(el, u && u.avatar, dn(uid, name), name); }
+
+function squareImage(file, size = 256, q = 0.85) {
+  return new Promise((res, rej) => {
+    const img = new Image(), u = URL.createObjectURL(file);
+    img.onload = () => {
+      const m = Math.min(img.naturalWidth, img.naturalHeight), c = document.createElement("canvas");
+      c.width = c.height = size;
+      c.getContext("2d").drawImage(img, (img.naturalWidth - m) / 2, (img.naturalHeight - m) / 2, m, m, 0, 0, size, size);
+      URL.revokeObjectURL(u); res(c.toDataURL("image/jpeg", q));
+    };
+    img.onerror = () => { URL.revokeObjectURL(u); rej(new Error("Не удалось прочитать фото")); };
+    img.src = u;
+  });
+}
+function pickFile(accept) {
+  return new Promise(res => { const i = document.createElement("input"); i.type = "file"; i.accept = accept; i.onchange = () => res(i.files[0] || null); i.click(); });
+}
+
+function startUsers() {
+  unsubUsers = onSnapshot(collection(db, "users"), snap => {
+    usersMap = {};
+    snap.docs.forEach(d => { usersMap[d.id] = d.data(); });
+    if (me && !usersMap[me.uid]) setDoc(doc(db, "users", me.uid), { name: me.name, displayName: cap(me.name) }, { merge: true }).catch(() => {});
+    refreshUsers();
+  }, err => console.error(err));
+  unsubGroup = onSnapshot(doc(db, "settings", "group"), snap => { groupInfo = snap.exists() ? snap.data() : {}; refreshGroup(); }, err => console.error(err));
+}
+function stopUsers() {
+  if (unsubUsers) { unsubUsers(); unsubUsers = null; }
+  if (unsubGroup) { unsubGroup(); unsubGroup = null; }
+  usersMap = {}; groupInfo = {}; refreshGroup();
+}
+function refreshUsers() {
+  document.querySelectorAll(".mav").forEach(a => paintAv(a, a.dataset.uid, a.dataset.nm));
+  document.querySelectorAll(".msg .name").forEach(n => { n.textContent = dn(n.dataset.uid, n.dataset.nm); });
+  renderPresence();
+  if ($("pGroup").classList.contains("show")) renderMembers();
+  if ($("pUser").classList.contains("show")) renderUser();
+  for (const id in tiles) { paintAv(tiles[id].av, id, nmOf(id)); tiles[id].lbl.textContent = dn(id, nmOf(id)); }
+}
+function refreshGroup() {
+  $("gTitle").textContent = groupTitle(); document.title = groupTitle();
+  paintAvData($("gAv"), groupInfo.avatar, groupTitle(), "Messenger L");
+}
+
+const openPage = id => { $("hmenu").classList.remove("show"); $(id).classList.add("show"); };
+const closePage = id => $(id).classList.remove("show");
+document.querySelectorAll("[data-close]").forEach(b => { b.onclick = () => closePage(b.dataset.close); });
+$("mProfile").onclick = () => openMe();
+$("mGroup").onclick = () => openGroup();
+$("mBg").onclick = () => openBg();
+$("gpBg").onclick = () => openBg();
+$("hinfo").onclick = () => openGroup();
+
+function openMe() {
+  const u = usersMap[me.uid] || {};
+  $("meName").value = u.displayName || cap(me.name); $("meBio").value = u.bio || ""; $("meLogin").textContent = "@" + me.name;
+  pendingMeAv = undefined; paintAvData($("meAv"), u.avatar, $("meName").value, me.name); openPage("pMe");
+}
+$("meAvWrap").onclick = async () => {
+  const f = await pickFile("image/*"); if (!f) return;
+  try { pendingMeAv = await squareImage(f); paintAvData($("meAv"), pendingMeAv, $("meName").value, me.name); } catch (e) { alert(e.message); }
+};
+$("meDelAv").onclick = () => { pendingMeAv = ""; paintAvData($("meAv"), "", $("meName").value, me.name); };
+$("meName").addEventListener("input", () => {
+  const has = pendingMeAv !== undefined ? !!pendingMeAv : !!(usersMap[me.uid] && usersMap[me.uid].avatar);
+  if (!has) paintAvData($("meAv"), "", $("meName").value, me.name);
+});
+$("meSave").onclick = async () => {
+  const name = $("meName").value.trim().slice(0, 24);
+  if (!name) { alert("Введите имя"); return; }
+  const d = { name: me.name, displayName: name, bio: $("meBio").value.trim().slice(0, 70) };
+  if (pendingMeAv !== undefined) d.avatar = pendingMeAv;
+  $("meSave").disabled = true;
+  try { await setDoc(doc(db, "users", me.uid), d, { merge: true }); closePage("pMe"); }
+  catch (e) { alert("Не сохранилось: " + e.message); }
+  $("meSave").disabled = false;
+};
+
+function openGroup() {
+  $("gpTitle").value = groupTitle(); pendingGAv = undefined;
+  paintAvData($("gpAv"), groupInfo.avatar, groupTitle(), "Messenger L"); renderMembers(); openPage("pGroup");
+}
+$("gpAvWrap").onclick = async () => {
+  const f = await pickFile("image/*"); if (!f) return;
+  try { pendingGAv = await squareImage(f); paintAvData($("gpAv"), pendingGAv, $("gpTitle").value, "Messenger L"); } catch (e) { alert(e.message); }
+};
+$("gpDelAv").onclick = () => { pendingGAv = ""; paintAvData($("gpAv"), "", $("gpTitle").value, "Messenger L"); };
+async function sysMsg(text) { await addDoc(collection(db, "messages"), { type: "service", text, name: me.name, uid: me.uid, createdAt: serverTimestamp() }); }
+$("gpSave").onclick = async () => {
+  const t = $("gpTitle").value.trim().slice(0, 40);
+  if (!t) { alert("Введите название группы"); return; }
+  const d = { title: t, by: me.uid, at: Date.now() };
+  const tChanged = t !== groupTitle(), aChanged = pendingGAv !== undefined;
+  if (aChanged) d.avatar = pendingGAv;
+  $("gpSave").disabled = true;
+  try {
+    await setDoc(doc(db, "settings", "group"), d, { merge: true });
+    const who = dn(me.uid, me.name);
+    if (tChanged) await sysMsg(who + " изменил(а) название группы на «" + t + "»");
+    if (aChanged) await sysMsg(who + (pendingGAv ? " обновил(а) фото группы" : " удалил(а) фото группы"));
+    closePage("pGroup");
+  } catch (e) { alert("Не сохранилось: " + e.message); }
+  $("gpSave").disabled = false;
+};
+function renderMembers() {
+  const ids = [...new Set([me.uid, ...Object.keys(usersMap), ...Object.keys(presence)])];
+  ids.sort((a, b) => a === me.uid ? -1 : b === me.uid ? 1 : 0);
+  const known = ids.map(u => nmOf(u).toLowerCase());
+  MEMBERS.forEach(n => { if (!known.includes(n)) ids.push("pending:" + n); });
+  $("mcount").textContent = pl(ids.length, "участник", "участника", "участников");
+  $("members").replaceChildren(...ids.map(uid => {
+    const r = document.createElement("div"); r.className = "row";
+    const av = document.createElement("div"); av.className = "avatar sm"; paintAv(av, uid, nmOf(uid));
+    const t = document.createElement("div"); t.className = "hl";
+    const a = document.createElement("div"); a.className = "title"; a.textContent = dn(uid, nmOf(uid)) + (uid === me.uid ? " (вы)" : "");
+    const st = statusOf(uid), b = document.createElement("div"); b.className = "sub" + (st.on ? " on" : ""); b.textContent = st.t;
+    t.append(a, b); r.append(av, t); r.onclick = () => openUser(uid); return r;
+  }));
+}
+function openUser(uid) { if (uid === me.uid) { openMe(); return; } curUser = uid; renderUser(); openPage("pUser"); }
+function renderUser() {
+  if (!curUser) return;
+  const u = usersMap[curUser] || {}, st = statusOf(curUser);
+  paintAv($("uAv"), curUser, nmOf(curUser)); $("uName").textContent = dn(curUser, nmOf(curUser));
+  $("uStat").textContent = st.t; $("uStat").classList.toggle("on", st.on);
+  $("uBio").textContent = u.bio || "Не указано"; $("uLogin").textContent = "@" + nmOf(curUser);
+}
+
+/* прочитано / печатает */
+function markRead() {
+  if (!me || !presPatch || document.visibilityState !== "visible") return;
+  const b = $("msgs"); if (b.scrollHeight - b.scrollTop - b.clientHeight > 200) return;
+  let newest = 0;
+  for (let i = msgDocs.length - 1; i >= 0; i--) {
+    const m = msgDocs[i].data;
+    if (m.uid !== me.uid && m.createdAt && m.createdAt.toMillis) { newest = m.createdAt.toMillis(); break; }
+  }
+  if (newest && newest > lastReadSent) { lastReadSent = newest; presPatch({ lastRead: newest }); }
+}
+const readBy = date => Object.entries(presence).some(([uid, p]) => uid !== me.uid && (p.lastRead || 0) >= +date);
+$("text").addEventListener("input", () => {
+  if (!presPatch || Date.now() - lastTyping < 2500 || !$("text").value) return;
+  lastTyping = Date.now(); presPatch({ typing: Date.now() });
+});
+document.addEventListener("click", () => { if ("Notification" in window && Notification.permission === "default") Notification.requestPermission().catch(() => {}); }, { once: true });
+
+/* реакция любым эмодзи */
+const EMO_ALL = "😀😃😄😁😆😅😂🤣😊😇🙂🙃😉😌😍🥰😘😗😋😛😜🤪😝🤑🤗🤭🤫🤔🤐🤨😐😑😶😏😒🙄😬😔😪🤤😴😷🤒🤕🤢🤮🤧🥵🥶🥴😵🤯🤠🥳😎🤓🧐😕😟🙁😮😯😲😳🥺😦😧😨😰😥😢😭😱😖😣😞😓😩😫🥱😤😡😠🤬😈👿💀💩🤡👻👽🤖🙈🙉🙊💋💘💝💖💗💓💞💕💔❤️🧡💛💚💙💜🤎🖤🤍💯💢💥💫💦💨💬👋✋👌🤌🤏✌️🤞🤟🤘🤙👈👉👆👇☝️👍👎✊👊👏🙌🤲🤝🙏💪👀🔥✨⭐🌟🎉🎊🎁🏆⚽🏀🎮🎵🎶🐶🐱🐭🐰🦊🐻🐼🐯🦁🐮🐷🐸🐵🐔🐧🦄🐝🦋🐢🐍🐙🐬🐳🌹🌸🌻🌈☀️🌙⚡❄️🍎🍕🍔🍟🌭🍿🍩🍪🍰🍫☕🍺🥂🚗✈️🚀🏠📱💻📷🎬💡💰💎🔑❗❓✅❌";
+const segEmo = t => typeof Intl !== "undefined" && Intl.Segmenter ? [...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(t)].map(x => x.segment) : [...t];
+$("epGrid").replaceChildren(...segEmo(EMO_ALL).map(emo => {
+  const b = document.createElement("button"); b.type = "button"; b.textContent = emo;
+  b.onclick = () => { const c = menuCtx; closeMenu(); if (c) setReaction(c.id, emo); };
+  return b;
+}));
+$("epInput").addEventListener("input", () => {
+  const e = segEmo($("epInput").value).find(x => /\p{Extended_Pictographic}/u.test(x));
+  if (!e) return;
+  const c = menuCtx; closeMenu(); if (c) setReaction(c.id, e);
+});
+
+/* фон чата */
+const BG_DEF = "radial-gradient(circle at 20% 10%,rgba(106,179,243,.12),transparent 40%),radial-gradient(circle at 80% 90%,rgba(106,179,243,.10),transparent 45%),#0e1621";
+const BGS = [
+  { id: "def", css: BG_DEF }, { id: "g1", css: "linear-gradient(160deg,#0f2027,#203a43,#2c5364)" },
+  { id: "g2", css: "linear-gradient(160deg,#1d2b64,#4b2a7b)" }, { id: "g3", css: "linear-gradient(160deg,#0b3b3c,#1f7a5a)" },
+  { id: "g4", css: "linear-gradient(160deg,#41295a,#c0476e)" }, { id: "g5", css: "linear-gradient(160deg,#3a1c71,#d76d77,#ffaf7b)" },
+  { id: "g6", css: "linear-gradient(160deg,#232526,#414345)" }, { id: "g7", css: "#0b141a" }
+];
+const PAT = "url(\"data:image/svg+xml," + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' fill='none' stroke='white' stroke-width='2'><circle cx='20' cy='22' r='7'/><path d='M70 14l8 14H62z'/><rect x='88' y='60' width='14' height='14' rx='3'/><path d='M18 80q8-12 16 0t16 0'/><circle cx='70' cy='96' r='4'/><path d='M100 18v12M94 24h12'/></svg>") + "\")";
+let bgCfg = { id: "def", pat: true, dim: 0 };
+try { const x = JSON.parse(localStorage.getItem("bgCfg") || "null"); if (x) bgCfg = { ...bgCfg, ...x }; } catch (_) {}
+function bgCss() {
+  if (bgCfg.id === "img") { try { const im = localStorage.getItem("bgImg"); if (im) return 'url("' + im + '")'; } catch (_) {} }
+  return (BGS.find(b => b.id === bgCfg.id) || BGS[0]).css;
+}
+function paintBg(bg, pat, dim) {
+  bg.style.background = bgCss(); bg.style.backgroundSize = "cover"; bg.style.backgroundPosition = "center";
+  pat.style.backgroundImage = PAT; pat.style.backgroundSize = "240px"; pat.style.display = bgCfg.pat ? "" : "none";
+  dim.style.background = "rgba(0,0,0," + (bgCfg.dim / 100) + ")";
+}
+function applyBg() { paintBg($("bgLayer"), $("patLayer"), $("dimLayer")); paintBg($("pvBg"), $("pvPat"), $("pvDim")); }
+function saveBg() { try { localStorage.setItem("bgCfg", JSON.stringify(bgCfg)); } catch (_) {} applyBg(); drawBgGrid(); }
+function drawBgGrid() {
+  $("bgGrid").replaceChildren(...BGS.map(b => {
+    const el = document.createElement("button"); el.type = "button"; el.style.background = b.css;
+    if (bgCfg.id === b.id) el.className = "sel";
+    el.onclick = () => { bgCfg.id = b.id; saveBg(); }; return el;
+  }));
+  $("bgPat").checked = !!bgCfg.pat; $("bgDim").value = bgCfg.dim;
+}
+function openBg() { drawBgGrid(); applyBg(); openPage("pBg"); }
+$("bgPat").onchange = () => { bgCfg.pat = $("bgPat").checked; saveBg(); };
+$("bgDim").oninput = () => { bgCfg.dim = +$("bgDim").value; saveBg(); };
+$("bgPick").onclick = async () => {
+  const f = await pickFile("image/*"); if (!f) return;
+  try {
+    const url = await compressImage(f, 1280, 0.7);
+    localStorage.setItem("bgImg", url); bgCfg.id = "img"; saveBg();
+  } catch (e) { alert("Не удалось поставить фон: " + (e.message || "слишком большое фото")); }
+};
+$("bgReset").onclick = () => { bgCfg = { id: "def", pat: true, dim: 0 }; try { localStorage.removeItem("bgImg"); } catch (_) {} saveBg(); };
+applyBg();
+
+/* видеосообщения (кружки) */
+const vidUrl = u => /^https:\/\/res\.cloudinary\.com\/.+\/video\/upload\//.test(u) ? u.replace("/video/upload/", "/video/upload/f_mp4,vc_h264,ac_aac/").replace(/\.\w+$/, ".mp4") : u;
+const RR_MAX = 60, RING = 301.6;
+const rrIO = "IntersectionObserver" in window ? new IntersectionObserver(es => es.forEach(en => {
+  const v = en.target.querySelector("video"); if (!v || v._active) return;
+  if (en.isIntersecting) v.play().catch(() => {}); else v.pause();
+}), { threshold: 0.4 }) : null;
+
+function buildRound(m) {
+  const w = document.createElement("div"); w.className = "rv";
+  const v = document.createElement("video");
+  v.muted = true; v.loop = true; v.autoplay = true; v.playsInline = true; v.preload = "auto"; v.setAttribute("playsinline", "");
+  let tried = false; v.src = vidUrl(m.mediaUrl);
+  v.onerror = () => { if (!tried) { tried = true; v.src = m.mediaUrl; } };
+  const ns = "http://www.w3.org/2000/svg", svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 100 100"); svg.setAttribute("class", "ring");
+  const c = document.createElementNS(ns, "circle");
+  [["cx", 50], ["cy", 50], ["r", 48], ["fill", "none"], ["stroke", "#fff"], ["stroke-width", 2.5], ["stroke-linecap", "round"], ["stroke-dasharray", RING], ["stroke-dashoffset", RING]].forEach(([k, x]) => c.setAttribute(k, x));
+  svg.appendChild(c);
+  const tag = document.createElement("span"); tag.className = "rd";
+  const idle = () => "🔇 " + fmtTime(Math.round(+m.duration || 0)); tag.textContent = idle();
+  w.append(v, svg, tag);
+  w.onclick = () => {
+    if (!v._active) {
+      v._active = true; v.muted = false; v.loop = false; v.currentTime = 0; v.play().catch(() => {});
+      if (playingAudio && playingAudio !== v) playingAudio.pause(); playingAudio = v;
+    } else if (v.paused) v.play().catch(() => {}); else v.pause();
+  };
+  v.ontimeupdate = () => {
+    if (!v._active) return;
+    const t = v.duration && isFinite(v.duration) ? v.duration : (+m.duration || 1);
+    c.setAttribute("stroke-dashoffset", RING * (1 - v.currentTime / t)); tag.textContent = fmtTime(Math.max(0, Math.ceil(t - v.currentTime)));
+  };
+  v.onended = () => { v._active = false; v.muted = true; v.loop = true; v.currentTime = 0; v.play().catch(() => {}); c.setAttribute("stroke-dashoffset", RING); tag.textContent = idle(); };
+  if (rrIO) rrIO.observe(w);
+  return w;
+}
+
+function buildCall(m, mine) {
+  const w = document.createElement("div"); w.className = "callmsg" + (m.missed ? " missed" : "");
+  const ci = document.createElement("div"); ci.className = "ci";
+  ci.innerHTML = m.video ? '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>' : '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>';
+  const t = document.createElement("div"), b = document.createElement("b"), sp = document.createElement("span");
+  b.textContent = m.missed ? (mine ? "Отменённый звонок" : "Пропущенный звонок") : (m.video ? "Видеозвонок" : "Аудиозвонок");
+  sp.textContent = m.missed ? (mine ? "Нет ответа" : "Нажмите, чтобы перезвонить") : (mine ? "Исходящий · " : "") + fmtTime(Math.round(+m.duration || 0));
+  t.append(b, sp); w.append(ci, t); return w;
+}
+
+let rrStream = null, rrRec = null, rrChunks = [], rrStart = 0, rrTimer = null, rrFacing = "user", rrCancel = false, rrMime = "";
+async function uploadMedia(blob, fname, maxData) {
+  if (CLOUD.cloudName && CLOUD.uploadPreset) {
+    const fd = new FormData(); fd.append("file", blob, fname); fd.append("upload_preset", CLOUD.uploadPreset);
+    const r = await fetch("https://api.cloudinary.com/v1_1/" + CLOUD.cloudName + "/auto/upload", { method: "POST", body: fd });
+    const j = await r.json();
+    if (!j.secure_url) throw new Error((j.error && j.error.message) || "ошибка загрузки");
+    return j.secure_url;
+  }
+  if (blob.size > maxData) throw new Error("Запись слишком длинная (подключите Cloudinary)");
+  return blobToDataURL(blob);
+}
+async function rrOpenStream() {
+  if (rrStream) rrStream.getTracks().forEach(t => t.stop());
+  try {
+    rrStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      video: { facingMode: rrFacing, width: { ideal: 480 }, height: { ideal: 480 }, aspectRatio: { ideal: 1 }, frameRate: { ideal: 30 } }
+    });
+  } catch (err) { alert("Нет доступа к камере или микрофону: " + err.message); closeRR(); return; }
+  const v = $("rrVid"); v.srcObject = rrStream; v.classList.toggle("mir", rrFacing === "user"); v.play().catch(() => {});
+}
+async function openRR() {
+  if (inCall) { alert("Во время звонка запись недоступна"); return; }
+  if (!navigator.mediaDevices || !window.MediaRecorder) { alert("Браузер не поддерживает запись видео"); return; }
+  $("hmenu").classList.remove("show"); $("rr").classList.add("show");
+  $("rrTime").textContent = "0:00"; $("rrRing").setAttribute("stroke-dashoffset", RING);
+  $("rrGo").classList.remove("rec"); $("rrFlip").style.visibility = ""; $("rrHint").textContent = "Нажмите, чтобы записать кружок";
+  await rrOpenStream();
+}
+function closeRR() {
+  clearInterval(rrTimer); rrTimer = null;
+  if (rrStream) { rrStream.getTracks().forEach(t => t.stop()); rrStream = null; }
+  $("rrVid").srcObject = null; $("rr").classList.remove("show");
+}
+function startRR() {
+  if (!rrStream || rrRec) return;
+  rrChunks = []; rrCancel = false;
+  rrMime = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm", "video/mp4"].find(t => MediaRecorder.isTypeSupported(t)) || "";
+  try { rrRec = new MediaRecorder(rrStream, { ...(rrMime ? { mimeType: rrMime } : {}), videoBitsPerSecond: 900000, audioBitsPerSecond: 64000 }); }
+  catch (e) { alert("Не удалось начать запись"); return; }
+  rrRec.ondataavailable = e => { if (e.data && e.data.size) rrChunks.push(e.data); };
+  rrRec.onstop = onRRStop; rrRec.start(250); rrStart = Date.now(); buzz(15);
+  $("rrGo").classList.add("rec"); $("rrFlip").style.visibility = "hidden"; $("rrHint").textContent = "Нажмите ещё раз, чтобы отправить";
+  rrTimer = setInterval(() => {
+    const t = (Date.now() - rrStart) / 1000;
+    $("rrTime").textContent = fmtTime(Math.floor(t)); $("rrRing").setAttribute("stroke-dashoffset", RING * (1 - Math.min(1, t / RR_MAX)));
+    if (t >= RR_MAX) stopRR(false);
+  }, 100);
+}
+function stopRR(cancel) { if (!rrRec) { if (cancel) closeRR(); return; } rrCancel = !!cancel; try { rrRec.stop(); } catch (_) { onRRStop(); } }
+async function onRRStop() {
+  const r = rrRec; if (!r) return; rrRec = null;
+  const dur = Math.round((Date.now() - rrStart) / 1000), type = (r.mimeType || rrMime || "video/webm").split(";")[0];
+  closeRR();
+  if (rrCancel || dur < 1 || !rrChunks.length || !me) { rrChunks = []; return; }
+  const blob = new Blob(rrChunks, { type }); rrChunks = [];
+  setBusy("Отправка видеосообщения…");
+  try {
+    const url = await uploadMedia(blob, "round." + (type.includes("mp4") ? "mp4" : "webm"), 600000);
+    await sendMsg({ mediaType: "round", mediaUrl: url, duration: dur });
+  } catch (err) { alert("Не отправилось: " + err.message); }
+  finally { setBusy(""); }
+}
+$("rrBtn").onclick = openRR;
+$("rrGo").onclick = () => { if (rrRec) stopRR(false); else startRR(); };
+$("rrX").onclick = () => { if (rrRec) stopRR(true); else closeRR(); };
+$("rrFlip").onclick = () => { if (rrRec) return; rrFacing = rrFacing === "user" ? "environment" : "user"; rrOpenStream(); };
+
+/* ---------- Звонки (WebRTC, до 3 человек) ---------- */
+// Opus на 64 кбит/с: заметно чище звук в звонках
+const tuneSdp = sdp => sdp.replace(/(a=fmtp:\d+ [^\r\n]*useinbandfec=1)/g, "$1;maxaveragebitrate=64000");
+const ICO = {
+  mic: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>',
+  micOff: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M19 11h-1.7c0 .74-.16 1.43-.43 2.05l1.23 1.23c.56-.98.9-2.09.9-3.28zm-4.02.17c0-.06.02-.11.02-.17V5c0-1.66-1.34-3-3-3S9 3.34 9 5v.18l5.98 5.99zM4.27 3L3 4.27l6.01 6.01V11c0 1.66 1.33 3 2.99 3 .22 0 .44-.03.65-.08l1.66 1.66c-.71.33-1.5.52-2.31.52-2.76 0-5.3-2.1-5.3-5.1H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c.91-.13 1.77-.45 2.54-.9L19.73 21 21 19.73 4.27 3z"/></svg>',
+  cam: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>',
+  camOff: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M21 6.5l-4 4V7c0-.55-.45-1-1-1H9.82L21 17.18V6.5zM3.27 2L2 3.27 4.73 6H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.21 0 .39-.08.54-.18L19.73 21 21 19.73 3.27 2z"/></svg>'
+};
+let inCall = false, localStream = null, myJoinedAt = 0, myVideo = false, myMuted = false, myCam = false, facing = "user";
+let hbTimer = null, sigUnsub = null, sigChain = Promise.resolve();
+let startedByMe = false, connectedAt = 0, callTimer = null, noAnswerTimer = null, dismissedKey = "", incKey = "";
+let lastParts = [];
+const peers = {}, pendingC = {}, tiles = {}, fails = {};
+
+const activeParts = () => {
+  const now = Date.now();
+  return lastParts.filter(p => p.id !== me.uid && now - (p.beat || 0) < 30000);
+};
+
+/* рингтон и гудки */
+let toneCtx = null, toneTimer = null;
+function beep(f, d) {
+  const t0 = toneCtx.currentTime, o = toneCtx.createOscillator(), g = toneCtx.createGain();
+  o.type = "sine"; o.frequency.value = f;
+  g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(0.18, t0 + 0.03); g.gain.linearRampToValueAtTime(0, t0 + d);
+  o.connect(g); g.connect(toneCtx.destination); o.start(t0); o.stop(t0 + d + 0.05);
+}
+function startTone(kind) {
+  stopTone();
+  try { toneCtx = toneCtx || new (window.AudioContext || window.webkitAudioContext)(); if (toneCtx.state === "suspended") toneCtx.resume(); } catch (_) { return; }
+  const ring = kind === "in"
+    ? () => { beep(880, .18); setTimeout(() => beep(660, .18), 220); setTimeout(() => beep(880, .18), 700); setTimeout(() => beep(660, .18), 920); buzz([300, 150, 300]); }
+    : () => beep(425, 1.1);
+  ring(); toneTimer = setInterval(ring, kind === "in" ? 2400 : 3600);
+}
+function stopTone() { clearInterval(toneTimer); toneTimer = null; try { navigator.vibrate && navigator.vibrate(0); } catch (_) {} }
+
+function watchCalls() {
+  unsubParts = onSnapshot(collection(db, "callRoom"), snap => {
+    lastParts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    onParts();
+  }, err => console.error(err));
+  partsTimer = setInterval(onParts, 8000);
+}
+
+function showIncoming(first, act) {
+  const key = first.id + ":" + first.joinedAt;
+  if ($("inc").classList.contains("show") && incKey === key) return;
+  incKey = key;
+  const names = act.map(p => dn(p.id, p.name)).join(", "), vid = act.some(p => p.video);
+  paintAv($("incAv"), first.id, first.name);
+  $("incName").textContent = names; $("incKind").textContent = vid ? "Видеозвонок…" : "Звонок…";
+  $("inc").dataset.video = vid ? "1" : ""; $("inc").classList.add("show"); startTone("in");
+  if (document.hidden && "Notification" in window && Notification.permission === "granted") {
+    try { new Notification(names + " звонит", { body: vid ? "Видеозвонок" : "Аудиозвонок", tag: "call" }); } catch (_) {}
+  }
+}
+function hideIncoming() { if ($("inc").classList.contains("show")) { $("inc").classList.remove("show"); stopTone(); } incKey = ""; }
+$("incYes").onclick = () => { const v = $("inc").dataset.video === "1"; hideIncoming(); joinCall(v); };
+$("incNo").onclick = () => { dismissedKey = incKey; hideIncoming(); };
+
+function setStat() {
+  if (connectedAt) return;
+  $("cstat").textContent = Object.keys(peers).length ? "Соединение…" : "Вызов…";
+}
+function onParts() {
+  if (!me) return;
+  const act = activeParts(), banner = $("banner");
+  if (!inCall) {
+    if (act.length) {
+      const first = act.slice().sort((a, b) => (a.joinedAt || 0) - (b.joinedAt || 0))[0];
+      $("bannerText").textContent = "📞 В звонке: " + act.map(p => dn(p.id, p.name)).join(", ");
+      banner.classList.add("show");
+      if (first.id + ":" + first.joinedAt !== dismissedKey) showIncoming(first, act); else hideIncoming();
+    } else { banner.classList.remove("show"); hideIncoming(); }
+    return;
+  }
+  hideIncoming(); banner.classList.remove("show");
+  for (const p of act) {
+    const e = peers[p.id];
+    if (e && e.joinedAt !== p.joinedAt) closePeer(p.id);
+    if (!peers[p.id]) {
+      const iOffer = p.joinedAt < myJoinedAt || (p.joinedAt === myJoinedAt && p.id < me.uid);
+      if (iOffer) startOffer(p);
+      else ensureTile(p.id, p.name, "Ожидание…");
+    }
+    const t = tiles[p.id];
+    if (t) { t.el.classList.toggle("noVid", !p.cam); t.mico.style.display = p.muted ? "flex" : "none"; }
+  }
+  for (const id of Object.keys(peers)) if (!act.find(p => p.id === id)) closePeer(id);
+  for (const id of Object.keys(tiles)) if (!act.find(p => p.id === id)) removeTile(id);
+  syncWait(); setStat();
+}
+
+function syncWait() { $("cwait").style.display = Object.keys(tiles).length ? "none" : "flex"; }
+function ensureTile(id, name, status) {
+  if (tiles[id]) return tiles[id];
+  const el = document.createElement("div"); el.className = "tile wait noVid";
+  const vid = document.createElement("video"); vid.autoplay = true; vid.playsInline = true;
+  const av = document.createElement("div"); av.className = "tav"; paintAv(av, id, name);
+  const st = document.createElement("div"); st.className = "st"; st.textContent = status || "Соединение…";
+  const lbl = document.createElement("div"); lbl.className = "lbl"; lbl.textContent = dn(id, name);
+  const mico = document.createElement("div"); mico.className = "mico"; mico.innerHTML = ICO.micOff;
+  el.append(vid, av, st, lbl, mico); $("grid").appendChild(el);
+  tiles[id] = { el, vid, st, av, lbl, mico }; syncWait();
+  return tiles[id];
+}
+function removeTile(id) { if (tiles[id]) { tiles[id].el.remove(); delete tiles[id]; } syncWait(); }
+
+function sendSignal(to, type, data) {
+  return addDoc(collection(db, "callSignals"), {
+    from: me.uid, to, type, data, name: me.name, joined: myJoinedAt, at: Date.now()
+  }).catch(err => console.error(err));
+}
+
+function callTick() {
+  const s = Math.floor((Date.now() - connectedAt) / 1000);
+  $("cstat").textContent = s < 3600 ? fmtTime(s) : Math.floor(s / 3600) + ":" + String(Math.floor(s % 3600 / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+}
+function markConnected() {
+  if (connectedAt) return;
+  connectedAt = Date.now(); stopTone(); clearTimeout(noAnswerTimer); callTick(); callTimer = setInterval(callTick, 1000);
+}
+
+function makePeer(id, name, joined) {
+  const pc = new RTCPeerConnection(ICE);
+  const tile = ensureTile(id, name, "Соединение…");
+  const e = { pc, joinedAt: joined, q: pendingC[id] || [], tile, offerer: false };
+  delete pendingC[id];
+  peers[id] = e;
+  pc.onicecandidate = ev => { if (ev.candidate) sendSignal(id, "candidate", JSON.stringify(ev.candidate)); };
+  pc.ontrack = ev => { if (ev.streams && ev.streams[0]) { tile.vid.srcObject = ev.streams[0]; tile.vid.play().catch(() => {}); } };
+  pc.onconnectionstatechange = () => {
+    const s = pc.connectionState;
+    if (s === "connected") { fails[id] = 0; tile.st.textContent = ""; tile.el.classList.remove("wait"); markConnected(); }
+    else if (s === "failed") {
+      fails[id] = (fails[id] || 0) + 1;
+      tile.st.textContent = fails[id] > 2 ? "Не удалось соединиться (возможно, нужен TURN-сервер)" : "Переподключение…";
+      if (e.offerer && inCall) setTimeout(() => {
+        if (inCall && peers[id] === e && pc.connectionState === "failed") { closePeer(id); startOffer({ id, name, joinedAt: joined }); }
+      }, 1500);
+    }
+    else if (s === "disconnected") tile.st.textContent = "Связь потеряна…";
+    else tile.st.textContent = "Соединение…";
+  };
+  return e;
+}
+
+function attachLocal(pc) { localStream.getTracks().forEach(t => pc.addTrack(t, localStream)); }
+
+async function flush(e) {
+  const q = e.q; e.q = [];
+  for (const c of q) { try { await e.pc.addIceCandidate(c); } catch (err) { console.warn(err); } }
+}
+
+async function startOffer(p) {
+  const e = makePeer(p.id, p.name, p.joinedAt);
+  e.offerer = true;
+  try {
+    attachLocal(e.pc);
+    if (!localStream.getVideoTracks().length) e.pc.addTransceiver("video", { direction: "recvonly" });
+    const off = await e.pc.createOffer();
+    await e.pc.setLocalDescription({ type: off.type, sdp: tuneSdp(off.sdp) });
+    await sendSignal(p.id, "offer", JSON.stringify(e.pc.localDescription));
+  } catch (err) { console.error(err); }
+}
+
+async function handleSignal(s) {
+  if (!inCall) return;
+  const from = s.from;
+  try {
+    if (s.type === "offer") {
+      closePeer(from);
+      const e = makePeer(from, s.name, s.joined);
+      await e.pc.setRemoteDescription(JSON.parse(s.data));
+      attachLocal(e.pc);
+      await flush(e);
+      const ans = await e.pc.createAnswer();
+      await e.pc.setLocalDescription({ type: ans.type, sdp: tuneSdp(ans.sdp) });
+      await sendSignal(from, "answer", JSON.stringify(e.pc.localDescription));
+    } else if (s.type === "answer") {
+      const e = peers[from];
+      if (!e) return;
+      await e.pc.setRemoteDescription(JSON.parse(s.data));
+      await flush(e);
+    } else if (s.type === "candidate") {
+      const c = JSON.parse(s.data);
+      const e = peers[from];
+      if (!e) { (pendingC[from] = pendingC[from] || []).push(c); return; }
+      if (e.pc.remoteDescription) await e.pc.addIceCandidate(c);
+      else e.q.push(c);
+    }
+  } catch (err) { console.error(err); }
+}
+
+function closePeer(id) {
+  const e = peers[id];
+  if (!e) return;
+  try { e.pc.close(); } catch (_) {}
+  delete peers[id];
+  removeTile(id);
+}
+
+async function beat() {
+  try { await setDoc(doc(db, "callRoom", me.uid), { name: me.name, joinedAt: myJoinedAt, beat: Date.now(), video: myVideo, muted: myMuted, cam: myVideo && myCam }); } catch (err) { console.error(err); }
+}
+
+function setCallBtns() {
+  $("mute").innerHTML = myMuted ? ICO.micOff : ICO.mic; $("mute").classList.toggle("off", myMuted);
+  $("cam").innerHTML = myCam ? ICO.cam : ICO.camOff; $("cam").classList.toggle("off", !myCam);
+  $("cam").style.display = myVideo ? "" : "none"; $("flip").style.display = myVideo ? "" : "none";
+}
+
+async function joinCall(video) {
+  if (inCall || !me) return;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { alert("Браузер не поддерживает звонки"); return; }
+  const audio = { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 };
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({
+      audio, video: video ? { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } } : false
+    });
+  } catch (err) {
+    if (video) {
+      try { localStream = await navigator.mediaDevices.getUserMedia({ audio, video: false }); video = false; alert("Камера недоступна — звонок будет только с голосом"); }
+      catch (e2) { alert("Нет доступа к микрофону: " + e2.message); return; }
+    } else { alert("Нет доступа к микрофону: " + err.message); return; }
+  }
+  startedByMe = activeParts().length === 0;
+  inCall = true; myVideo = !!video; myCam = !!video; myMuted = false; facing = "user"; myJoinedAt = Date.now(); connectedAt = 0;
+  for (const k of Object.keys(pendingC)) delete pendingC[k];
+  for (const k of Object.keys(fails)) delete fails[k];
+  hideIncoming(); $("banner").classList.remove("show");
+  $("call").classList.add("active");
+  $("ctitle").textContent = groupTitle(); $("cstat").textContent = "Вызов…";
+  paintAvData($("cwAv"), groupInfo.avatar, groupTitle(), "Messenger L");
+  const pip = $("pip");
+  pip.srcObject = localStream; pip.style.transform = "scaleX(-1)"; pip.style.visibility = "visible";
+  pip.style.display = video ? "block" : "none";
+  setCallBtns(); syncWait();
+
+  try {
+    const old = await getDocs(query(collection(db, "callSignals"), where("to", "==", me.uid)));
+    await Promise.all(old.docs.map(d => deleteDoc(d.ref).catch(() => {})));
+  } catch (_) {}
+
+  sigUnsub = onSnapshot(query(collection(db, "callSignals"), where("to", "==", me.uid)), snap => {
+    const added = snap.docChanges().filter(c => c.type === "added");
+    added.sort((a, b) => (a.doc.data().at || 0) - (b.doc.data().at || 0));
+    added.forEach(ch => {
+      const s = ch.doc.data();
+      deleteDoc(ch.doc.ref).catch(() => {});
+      sigChain = sigChain.then(() => handleSignal(s));
+    });
+  }, err => console.error(err));
+
+  await beat();
+  hbTimer = setInterval(beat, 10000);
+  if (startedByMe) { startTone("out"); noAnswerTimer = setTimeout(() => { if (inCall && !connectedAt) hangup(); }, 60000); }
+  onParts();
+}
+
+async function hangup() {
+  if (!inCall) return;
+  inCall = false;
+  const dur = connectedAt ? Math.round((Date.now() - connectedAt) / 1000) : 0, wasHost = startedByMe, wasVideo = myVideo;
+  stopTone(); clearTimeout(noAnswerTimer); clearInterval(callTimer); callTimer = null; connectedAt = 0;
+  clearInterval(hbTimer); hbTimer = null;
+  if (sigUnsub) { sigUnsub(); sigUnsub = null; }
+  Object.keys(peers).forEach(closePeer);
+  Object.keys(tiles).forEach(removeTile);
+  if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+  $("pip").srcObject = null;
+  $("call").classList.remove("active");
+  try { await deleteDoc(doc(db, "callRoom", me.uid)); } catch (_) {}
+  if (wasHost && me) {
+    try { await addDoc(collection(db, "messages"), { type: "call", text: "", name: me.name, uid: me.uid, createdAt: serverTimestamp(), video: wasVideo, duration: dur, missed: dur === 0 }); } catch (_) {}
+  }
+  onParts();
+}
+
+window.addEventListener("pagehide", () => { if (inCall && me) deleteDoc(doc(db, "callRoom", me.uid)).catch(() => {}); });
+
+$("callAudio").onclick = () => joinCall(false);
+$("callVideo").onclick = () => joinCall(true);
+$("joinAudio").onclick = () => joinCall(false);
+$("joinVideo").onclick = () => joinCall(true);
+$("hang").onclick = hangup;
+$("mute").onclick = () => {
+  if (!localStream) return;
+  const t = localStream.getAudioTracks()[0]; if (!t) return;
+  t.enabled = !t.enabled; myMuted = !t.enabled; setCallBtns(); beat();
+};
+$("cam").onclick = () => {
+  if (!localStream) return;
+  const t = localStream.getVideoTracks()[0]; if (!t) return;
+  t.enabled = !t.enabled; myCam = t.enabled; $("pip").style.visibility = myCam ? "visible" : "hidden"; setCallBtns(); beat();
+};
+$("flip").onclick = async () => {
+  if (!localStream || !myVideo) return;
+  const next = facing === "user" ? "environment" : "user";
+  try {
+    const ns = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: next }, width: { ideal: 1280 }, height: { ideal: 720 } } });
+    const nt = ns.getVideoTracks()[0], old = localStream.getVideoTracks()[0];
+    nt.enabled = myCam;
+    for (const id in peers) { const sd = peers[id].pc.getSenders().find(x => x.track && x.track.kind === "video"); if (sd) await sd.replaceTrack(nt); }
+    if (old) { localStream.removeTrack(old); old.stop(); }
+    localStream.addTrack(nt); facing = next;
+    $("pip").srcObject = null; $("pip").srcObject = localStream; $("pip").style.transform = facing === "user" ? "scaleX(-1)" : "none";
+  } catch (err) { alert("Не удалось сменить камеру"); }
+};
+</script>
+</body>
+</html>
